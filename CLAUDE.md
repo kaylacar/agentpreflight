@@ -1,0 +1,34 @@
+# Preflight
+
+Pre-flight validation SDK for AI tool calls.
+
+## What this is
+
+A general-purpose validation layer that sits between an AI's intent and execution. Intercepts tool calls, runs pre-flight checks, catches errors before they happen. Any AI coding tool can plug into it.
+
+## Architecture
+
+- `src/types.ts` — Core interfaces (ToolCall, ValidationResult, Rule)
+- `src/engine.ts` — Rule matching + execution engine
+- `src/reporter.ts` — Formats validation results
+- `src/rules/` — Rule modules:
+  - `environment.ts` — OneDrive redirect, platform path separators, home dir resolution
+  - `filesystem.ts` — Parent dir exists, file exists for read, write permissions, sensitive files
+  - `git.ts` — Force push protection, upstream check, staging verification, branch protection
+  - `naming.ts` — File naming convention enforcement, naming mistake detection
+  - `parallel.ts` — Cross-agent file conflict and git operation conflict detection
+- `src/index.ts` — Public API (createPreflight, validate)
+
+## Commands
+
+- `pnpm test` — run all tests
+- `pnpm build` — build with tsup
+- `pnpm typecheck` — type check without emitting
+
+## Conventions
+
+- TypeScript, ESM, vitest, tsup
+- Zero external dependencies for core engine (only node builtins)
+- Rules are pluggable — users can add custom rules
+- Tool names are case-insensitive in rule matching
+- npm package: @preflight/core
