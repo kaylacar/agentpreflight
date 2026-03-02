@@ -20,6 +20,9 @@ import { filesystemRules } from './rules/filesystem.js';
 import { gitRules } from './rules/git.js';
 import { namingRules } from './rules/naming.js';
 import { parallelRules, createInFlightTracker } from './rules/parallel.js';
+import { networkRules } from './rules/network.js';
+import { secretsRules } from './rules/secrets.js';
+import { scopeRules } from './rules/scope.js';
 import type {
   Preflight,
   PreflightOptions,
@@ -51,6 +54,9 @@ const RULE_SETS: Record<RuleSet, Rule[]> = {
   naming: namingRules,
   environment: environmentRules,
   parallel: parallelRules,
+  network: networkRules,
+  secrets: secretsRules,
+  scope: scopeRules,
 };
 
 /**
@@ -77,7 +83,7 @@ export function createPreflight(options: PreflightOptions = {}): Preflight {
   };
 
   // Load rule sets — strings load built-in sets, objects are custom rules
-  const ruleSets = options.rules ?? ['filesystem', 'git', 'environment', 'naming', 'parallel'];
+  const ruleSets = options.rules ?? ['filesystem', 'git', 'environment', 'naming', 'parallel', 'network', 'secrets', 'scope'];
   for (const rule of ruleSets) {
     if (typeof rule === 'string') {
       const builtIn = RULE_SETS[rule as RuleSet];

@@ -84,7 +84,7 @@ export interface Preflight {
 }
 
 /** Built-in rule set names */
-export type RuleSet = 'filesystem' | 'git' | 'naming' | 'environment' | 'parallel';
+export type RuleSet = 'filesystem' | 'git' | 'naming' | 'environment' | 'parallel' | 'network' | 'secrets' | 'scope';
 
 /**
  * Tracks in-flight tool calls for parallel agent conflict detection.

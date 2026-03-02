@@ -1,7 +1,6 @@
 {
-  "name": "@preflight/core",
+  "name": "agentpreflight",
   "version": "0.1.0",
-  "private": true,
   "description": "Pre-flight validation for AI tool calls — catches mistakes before execution",
   "type": "module",
   "main": "./dist/index.js",
