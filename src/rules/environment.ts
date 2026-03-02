@@ -13,8 +13,7 @@
  * - devnull-platform: catches NUL (Windows) vs /dev/null (Unix) mismatches
  */
 
-import { accessSync, constants, realpathSync } from 'node:fs';
-import { resolve, sep } from 'node:path';
+import { accessSync, constants } from 'node:fs';
 import type { Rule, ToolCall, PreflightContext, ValidationResult } from '../types.js';
 
 /** Known folder redirections on Windows (OneDrive, etc.) */

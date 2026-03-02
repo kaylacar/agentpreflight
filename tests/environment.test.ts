@@ -1,6 +1,21 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createPreflight } from '../src/index.js';
 import type { ToolCall } from '../src/types.js';
+
+// Mock node:fs so OneDrive path checks work on any platform
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...actual,
+    accessSync(path: string, mode?: number) {
+      // Simulate OneDrive folders existing on a Windows machine
+      if (typeof path === 'string' && path.includes('OneDrive')) {
+        return; // no throw = exists
+      }
+      return actual.accessSync(path, mode);
+    },
+  };
+});
 
 function makePreflight(platform: NodeJS.Platform = 'win32') {
   return createPreflight({

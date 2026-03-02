@@ -20,7 +20,7 @@ const SECRET_PATTERNS: SecretPattern[] = [
   { name: 'AWS secret key',         pattern: /aws_secret_access_key\s*=\s*[a-zA-Z0-9+/]{40}/i },
   { name: 'Stripe key',             pattern: /sk_live_[a-zA-Z0-9]{24,}/ },
   { name: 'Stripe test key',        pattern: /sk_test_[a-zA-Z0-9]{24,}/ },
-  { name: 'Cloudflare API token',   pattern: /[a-zA-Z0-9_\-]{37}/ },
+  { name: 'Cloudflare API token',   pattern: /cf[_-][a-zA-Z0-9_\-]{35,}/ },
   { name: 'Generic secret env var', pattern: /(SECRET|PASSWORD|PASSWD|API_KEY|AUTH_TOKEN|PRIVATE_KEY)\s*=\s*["']?[a-zA-Z0-9+/=_\-]{16,}["']?/i },
   { name: 'Private key block',      pattern: /-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/ },
 ];

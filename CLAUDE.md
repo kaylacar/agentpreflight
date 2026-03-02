@@ -11,12 +11,18 @@ A general-purpose validation layer that sits between an AI's intent and executio
 - `src/types.ts` — Core interfaces (ToolCall, ValidationResult, Rule)
 - `src/engine.ts` — Rule matching + execution engine
 - `src/reporter.ts` — Formats validation results
+- `src/manifest.ts` — Local environment manifest (repo name-to-path map, named paths)
 - `src/rules/` — Rule modules:
-  - `environment.ts` — OneDrive redirect, platform path separators, home dir resolution
-  - `filesystem.ts` — Parent dir exists, file exists for read, write permissions, sensitive files
-  - `git.ts` — Force push protection, upstream check, staging verification, branch protection
+  - `environment.ts` — OneDrive redirect, platform path separators, home dir resolution, repo path resolution
+  - `filesystem.ts` — Parent dir exists, file exists for read, write permissions, symlink resolution, sensitive files
+  - `git.ts` — Force push protection, upstream check, staging verification, branch protection, no-verify detection
+  - `html-security.ts` — Detects innerHTML, eval(), document.write() in HTML/JS file writes
+  - `json-validation.ts` — Validates JSON syntax in .json file writes
   - `naming.ts` — File naming convention enforcement, naming mistake detection
+  - `network.ts` — Dangerous protocols, internal network access, secret in headers, HTTP vs HTTPS
   - `parallel.ts` — Cross-agent file conflict and git operation conflict detection
+  - `scope.ts` — Path traversal detection, system directory write protection
+  - `secrets.ts` — Secret/credential detection in file content and bash commands
 - `src/index.ts` — Public API (createPreflight, validate)
 
 ## Commands
@@ -31,4 +37,4 @@ A general-purpose validation layer that sits between an AI's intent and executio
 - Zero external dependencies for core engine (only node builtins)
 - Rules are pluggable — users can add custom rules
 - Tool names are case-insensitive in rule matching
-- npm package: @preflight/core
+- npm package: agentpreflight

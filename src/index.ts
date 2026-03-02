@@ -26,6 +26,8 @@ import { parallelRules, createInFlightTracker } from './rules/parallel.js';
 import { networkRules } from './rules/network.js';
 import { secretsRules } from './rules/secrets.js';
 import { scopeRules } from './rules/scope.js';
+import { jsonValidationRules } from './rules/json-validation.js';
+import { htmlSecurityRules } from './rules/html-security.js';
 import type {
   Preflight,
   PreflightOptions,
@@ -60,6 +62,8 @@ const RULE_SETS: Record<RuleSet, Rule[]> = {
   network: networkRules,
   secrets: secretsRules,
   scope: scopeRules,
+  'json-validation': jsonValidationRules,
+  'html-security': htmlSecurityRules,
 };
 
 /**
@@ -88,17 +92,17 @@ export function createPreflight(options: PreflightOptions = {}): Preflight {
     manifest: options.manifest, // inline manifest takes priority
   };
 
-  // Load manifest from disk if not provided inline, then update context
-  if (!context.manifest) {
-    loadManifest(options.manifestPath).then((m) => {
-      if (m) context.manifest = m;
-    }).catch(() => {
-      // Manifest load failure is non-fatal — just skip resolution
-    });
-  }
+  // Load manifest from disk if not provided inline — store promise so validate() can await it
+  const manifestReady = context.manifest
+    ? Promise.resolve()
+    : loadManifest(options.manifestPath).then((m) => {
+        if (m) context.manifest = m;
+      }).catch(() => {
+        // Manifest load failure is non-fatal — just skip resolution
+      });
 
   // Load rule sets — strings load built-in sets, objects are custom rules
-  const ruleSets = options.rules ?? ['filesystem', 'git', 'environment', 'naming', 'parallel', 'network', 'secrets', 'scope'];
+  const ruleSets = options.rules ?? ['filesystem', 'git', 'environment', 'naming', 'parallel', 'network', 'secrets', 'scope', 'json-validation', 'html-security'];
   for (const rule of ruleSets) {
     if (typeof rule === 'string') {
       const builtIn = RULE_SETS[rule as RuleSet];
@@ -112,6 +116,8 @@ export function createPreflight(options: PreflightOptions = {}): Preflight {
 
   return {
     async validate(call: ToolCall): Promise<ValidationResult[]> {
+      // Ensure manifest is loaded before validating
+      await manifestReady;
       // Register in the tracker so parallel rules can see concurrent calls
       tracker.register(call);
       try {
