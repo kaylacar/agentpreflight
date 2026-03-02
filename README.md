@@ -427,14 +427,20 @@ Different AI tools use different names for the same operation. By default, agent
 If your tool uses non-standard names, extend the defaults:
 
 ```ts
+// MCP server that exposes "write_document" and "run_shell" tools
 const pf = createPreflight({
   toolMappings: {
-    write: ['SaveFile', 'create_document'],
-    bash: ['terminal', 'run_script'],
-    read: ['load_file'],
-    network: ['api_call'],
+    write: ['write_document'],
+    bash: ['run_shell'],
   },
 });
+
+// Now all rules that check write tools will also match "write_document"
+const results = await pf.validate({
+  tool: 'write_document',
+  params: { path: '/etc/passwd', content: '...' },
+});
+// → [FAIL] scope-system-dir-write: Attempt to write to system directory
 ```
 
 Custom names are added to the built-in defaults (not replacing them). All matching is case-insensitive.
@@ -448,17 +454,6 @@ Custom names are added to the built-in defaults (not replacing them). All matchi
 | `bash` | `bash`, `shell`, `run_command`, `execute` |
 | `network` | `web_fetch`, `webfetch`, `fetch`, `http_request`, `httprequest`, `curl`, `wget`, `request`, `get`, `post` |
 
-You can also use the matcher standalone:
-
-```ts
-import { createToolMatcher } from 'agentpreflight';
-
-const tools = createToolMatcher({ write: ['SaveFile'] });
-tools.isWrite('SaveFile'); // true
-tools.isWrite('write');    // true (built-in still works)
-tools.isFile('SaveFile');  // true (isFile = isWrite || isRead)
-```
-
 ---
 
 ## Options
@@ -469,7 +464,7 @@ const pf = createPreflight({
   rules: ['filesystem', 'git', myCustomRule],
 
   // Custom tool name mappings — extends built-in defaults
-  toolMappings: { write: ['SaveFile'], bash: ['terminal'] },
+  toolMappings: { write: ['write_document'], bash: ['run_shell'] },
 
   // Platform override — useful for cross-platform testing
   platform: 'win32',
