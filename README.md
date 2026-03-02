@@ -29,26 +29,48 @@ if (hasFailures(results)) {
 
 ---
 
-## For agents reading this
+## For agents
 
-This library is designed for you. Here is what you need to know:
+**Purpose:** Pre-flight validation SDK for AI agent tool calls. Prevents filesystem errors, git mistakes, secret leaks, and path resolution failures before execution.
 
-**Before any tool call, call `pf.validate(call)`.** If the result contains `status: 'fail'`, do not execute. If `status: 'warn'`, check the `suggestion` field — it often contains the corrected value.
+**Capabilities:**
+- Validate tool calls before execution (`filesystem`, `git`, `secrets`, `environment`, `naming`, `network`, `parallel`, `scope`)
+- Resolve local repo paths without asking the user (`getEnv`, `resolveRepo`)
+- Detect and correct platform path errors, OneDrive redirects, wrong separators
+- Block force pushes to main, secret commits, writes to nonexistent directories
+- Catch cross-agent file conflicts in parallel execution environments
 
-**At session start, call `getEnv()`.** It returns a manifest of where repos and named paths live on the machine. Use it to resolve paths without asking the user.
+**Integration pattern:**
 
 ```ts
-import { getEnv, resolveRepo } from 'agentpreflight';
+import { createPreflight, getEnv, hasFailures } from 'agentpreflight';
 
+// Step 1 — session start: resolve local environment
 const env = await getEnv(); // reads ~/.preflight-env.json
-if (env) {
-  const path = resolveRepo(env, 'my-repo'); // → '/absolute/local/path'
-}
+// env.repos → { 'repo-name': '/absolute/local/path', ... }
+// env.paths → { 'desktop': '/absolute/path', ... }
+
+// Step 2 — before every tool call: validate
+const pf = createPreflight();
+const results = await pf.validate({ tool: 'write', params: { path: '...' } });
+
+// Step 3 — act on results
+if (hasFailures(results)) { /* abort */ }
+// result.suggestion contains corrected value when status === 'warn'
 ```
 
-**Tool name matching is case-insensitive.** `write_file`, `Write`, `WRITE` all match the same rules.
+**Result schema:**
+```ts
+{ status: 'pass' | 'warn' | 'fail', rule: string, message: string, suggestion?: string }
+```
 
-**Param names vary by AI tool.** The library checks `path`, `file_path`, `file`, `command`, `cmd`, `content`, `new_string` — common variants across Claude Code, Cursor, Copilot, and others.
+**When `status === 'warn'`:** check `suggestion` — it contains the corrected path, safer command, or next step.
+
+**When `status === 'fail'`:** do not execute the tool call.
+
+**Tool name matching:** case-insensitive. `write_file`, `Write`, `WRITE` all match.
+
+**Param resolution:** checks `path`, `file_path`, `file`, `command`, `cmd`, `content`, `new_string` — covers Claude Code, Cursor, Copilot, and other coding assistants.
 
 ---
 
