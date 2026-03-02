@@ -1,10 +1,4 @@
-import type { Rule, ToolCall, ValidationResult } from '../types.js';
-
-const WRITE_TOOLS = new Set([
-  'write_file', 'write', 'edit', 'edit_file', 'create_file', 'notebookedit',
-]);
-
-const BASH_TOOLS = new Set(['bash', 'shell', 'run_command', 'execute']);
+import type { Rule, ToolCall, PreflightContext, ValidationResult } from '../types.js';
 
 interface SecretPattern {
   name: string;
@@ -44,8 +38,8 @@ function detectSecrets(text: string): SecretPattern | null {
 
 const secretInFileContent: Rule = {
   name: 'secrets-in-file-content',
-  matches(call) {
-    return WRITE_TOOLS.has(call.tool.toLowerCase()) && getContent(call) !== null;
+  matches(call, ctx) {
+    return ctx.tools.isWrite(call.tool) && getContent(call) !== null;
   },
   async validate(call): Promise<ValidationResult> {
     const content = getContent(call)!;
@@ -66,8 +60,8 @@ const secretInFileContent: Rule = {
 
 const secretInBashCommand: Rule = {
   name: 'secrets-in-bash-command',
-  matches(call) {
-    return BASH_TOOLS.has(call.tool.toLowerCase()) && getCommand(call) !== null;
+  matches(call, ctx) {
+    return ctx.tools.isBash(call.tool) && getCommand(call) !== null;
   },
   async validate(call): Promise<ValidationResult> {
     const cmd = getCommand(call)!;

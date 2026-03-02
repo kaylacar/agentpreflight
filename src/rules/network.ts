@@ -1,11 +1,4 @@
-import type { Rule, ToolCall, ValidationResult } from '../types.js';
-
-const NETWORK_TOOLS = new Set([
-  'web_fetch', 'webfetch', 'fetch', 'http_request', 'httprequest',
-  'curl', 'wget', 'request', 'get', 'post',
-]);
-
-const BASH_TOOLS = new Set(['bash', 'shell', 'run_command', 'execute']);
+import type { Rule, ToolCall, PreflightContext, ValidationResult } from '../types.js';
 
 const INTERNAL_IP = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|localhost|0\.0\.0\.0)/i;
 
@@ -27,9 +20,9 @@ function extractBashUrls(cmd: string): string[] {
 
 const dangerousProtocol: Rule = {
   name: 'network-dangerous-protocol',
-  matches(call) {
-    if (NETWORK_TOOLS.has(call.tool.toLowerCase())) return getUrl(call) !== null;
-    if (BASH_TOOLS.has(call.tool.toLowerCase())) {
+  matches(call, ctx) {
+    if (ctx.tools.isNetwork(call.tool)) return getUrl(call) !== null;
+    if (ctx.tools.isBash(call.tool)) {
       const cmd = call.params.command ?? call.params.cmd ?? '';
       return typeof cmd === 'string' && /file:|javascript:|data:|ftp:/i.test(cmd);
     }
@@ -51,19 +44,19 @@ const dangerousProtocol: Rule = {
 
 const internalNetworkAccess: Rule = {
   name: 'network-internal-access',
-  matches(call) {
-    if (NETWORK_TOOLS.has(call.tool.toLowerCase())) return getUrl(call) !== null;
-    if (BASH_TOOLS.has(call.tool.toLowerCase())) {
+  matches(call, ctx) {
+    if (ctx.tools.isNetwork(call.tool)) return getUrl(call) !== null;
+    if (ctx.tools.isBash(call.tool)) {
       const cmd = call.params.command ?? call.params.cmd ?? '';
       return typeof cmd === 'string' && /https?:\/\//i.test(cmd);
     }
     return false;
   },
-  async validate(call): Promise<ValidationResult> {
+  async validate(call, ctx): Promise<ValidationResult> {
     const url = getUrl(call);
     const urls = url ? [url] : [];
 
-    if (BASH_TOOLS.has(call.tool.toLowerCase())) {
+    if (ctx.tools.isBash(call.tool)) {
       const cmd = call.params.command ?? call.params.cmd ?? '';
       if (typeof cmd === 'string') urls.push(...extractBashUrls(cmd));
     }
@@ -90,8 +83,8 @@ const internalNetworkAccess: Rule = {
 
 const secretInHeaders: Rule = {
   name: 'network-secret-in-headers',
-  matches(call) {
-    return NETWORK_TOOLS.has(call.tool.toLowerCase()) && typeof call.params.headers === 'object' && call.params.headers !== null;
+  matches(call, ctx) {
+    return ctx.tools.isNetwork(call.tool) && typeof call.params.headers === 'object' && call.params.headers !== null;
   },
   async validate(call): Promise<ValidationResult> {
     const headers = call.params.headers as Record<string, unknown>;
@@ -113,8 +106,8 @@ const secretInHeaders: Rule = {
 
 const httpNotHttps: Rule = {
   name: 'network-http-not-https',
-  matches(call) {
-    return NETWORK_TOOLS.has(call.tool.toLowerCase()) && getUrl(call) !== null;
+  matches(call, ctx) {
+    return ctx.tools.isNetwork(call.tool) && getUrl(call) !== null;
   },
   async validate(call): Promise<ValidationResult> {
     const url = getUrl(call)!;

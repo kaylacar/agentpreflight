@@ -22,21 +22,13 @@ function getPathParam(call: ToolCall): string | null {
   return typeof p === 'string' ? p : null;
 }
 
-const WRITE_TOOLS = new Set([
-  'write_file', 'write', 'edit', 'edit_file', 'create_file', 'notebookedit',
-]);
-
-const READ_TOOLS = new Set([
-  'read_file', 'read',
-]);
-
 /**
  * Before writing a file, check that the parent directory exists.
  */
 const parentDirExists: Rule = {
   name: 'parent-dir-exists',
-  matches(call) {
-    return WRITE_TOOLS.has(call.tool.toLowerCase()) && getPathParam(call) !== null;
+  matches(call, ctx) {
+    return ctx.tools.isWrite(call.tool) && getPathParam(call) !== null;
   },
   async validate(call) {
     const path = getPathParam(call)!;
@@ -60,8 +52,8 @@ const parentDirExists: Rule = {
  */
 const fileExistsForRead: Rule = {
   name: 'file-exists-for-read',
-  matches(call) {
-    return READ_TOOLS.has(call.tool.toLowerCase()) && getPathParam(call) !== null;
+  matches(call, ctx) {
+    return ctx.tools.isRead(call.tool) && getPathParam(call) !== null;
   },
   async validate(call) {
     const path = getPathParam(call)!;
@@ -83,8 +75,8 @@ const fileExistsForRead: Rule = {
  */
 const writePermission: Rule = {
   name: 'write-permission',
-  matches(call) {
-    return WRITE_TOOLS.has(call.tool.toLowerCase()) && getPathParam(call) !== null;
+  matches(call, ctx) {
+    return ctx.tools.isWrite(call.tool) && getPathParam(call) !== null;
   },
   async validate(call) {
     const path = getPathParam(call)!;
@@ -146,8 +138,8 @@ const symlinkResolution: Rule = {
  */
 const sensitiveFileWrite: Rule = {
   name: 'sensitive-file-write',
-  matches(call) {
-    return WRITE_TOOLS.has(call.tool.toLowerCase()) && getPathParam(call) !== null;
+  matches(call, ctx) {
+    return ctx.tools.isWrite(call.tool) && getPathParam(call) !== null;
   },
   async validate(call) {
     const path = getPathParam(call)!;

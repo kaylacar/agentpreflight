@@ -63,18 +63,14 @@ function normalizePath(p: string): string {
   return p.replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase();
 }
 
-const WRITE_TOOLS = new Set([
-  'write_file', 'write', 'edit', 'edit_file', 'create_file', 'notebookedit',
-]);
-
 /**
  * Detect when parallel agents target the same file.
  * Two agents writing to the same file = last write wins, first write lost.
  */
 const parallelFileConflict: Rule = {
   name: 'parallel-file-conflict',
-  matches(call) {
-    return WRITE_TOOLS.has(call.tool.toLowerCase()) && getPathParam(call) !== null;
+  matches(call, ctx) {
+    return ctx.tools.isWrite(call.tool) && getPathParam(call) !== null;
   },
   async validate(call, ctx) {
     const conflicts = ctx.inFlight.getConflicts(call);
@@ -102,8 +98,8 @@ const parallelFileConflict: Rule = {
  */
 const parallelGitConflict: Rule = {
   name: 'parallel-git-conflict',
-  matches(call) {
-    if (call.tool.toLowerCase() !== 'bash') return false;
+  matches(call, ctx) {
+    if (!ctx.tools.isBash(call.tool)) return false;
     const cmd = getCommandParam(call);
     return cmd !== null && /\bgit\b/.test(cmd);
   },
@@ -112,7 +108,7 @@ const parallelGitConflict: Rule = {
     const allInFlight = ctx.inFlight.getAll().filter((c) => c !== call);
 
     const otherGitCalls = allInFlight.filter((c) => {
-      if (c.tool.toLowerCase() !== 'bash') return false;
+      if (!ctx.tools.isBash(c.tool)) return false;
       const otherCmd = getCommandParam(c);
       return otherCmd !== null && /\bgit\b/.test(otherCmd);
     });

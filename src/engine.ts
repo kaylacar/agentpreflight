@@ -29,7 +29,7 @@ export class RuleEngine {
    * are validated in parallel for speed.
    */
   async validate(call: ToolCall, context: PreflightContext): Promise<ValidationResult[]> {
-    const matching = this.rules.filter((r) => r.matches(call));
+    const matching = this.rules.filter((r) => r.matches(call, context));
     if (matching.length === 0) return [];
 
     // Run all matching rules concurrently — they're independent of each other

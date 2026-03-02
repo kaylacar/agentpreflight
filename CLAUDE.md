@@ -11,6 +11,7 @@ A general-purpose validation layer that sits between an AI's intent and executio
 - `src/types.ts` — Core interfaces (ToolCall, ValidationResult, Rule)
 - `src/engine.ts` — Rule matching + execution engine
 - `src/reporter.ts` — Formats validation results
+- `src/tools.ts` — Centralized tool name matching (ToolMatcher, ToolMappings, configurable per-instance)
 - `src/manifest.ts` — Local environment manifest (repo name-to-path map, named paths)
 - `src/rules/` — Rule modules:
   - `environment.ts` — OneDrive redirect, platform path separators, home dir resolution, repo path resolution
@@ -23,6 +24,7 @@ A general-purpose validation layer that sits between an AI's intent and executio
   - `parallel.ts` — Cross-agent file conflict and git operation conflict detection
   - `scope.ts` — Path traversal detection, system directory write protection
   - `secrets.ts` — Secret/credential detection in file content and bash commands
+  - `yaml-validation.ts` — Validates YAML syntax in .yml/.yaml file writes (tabs, unclosed quotes, duplicate keys)
 - `src/index.ts` — Public API (createPreflight, validate)
 
 ## Commands

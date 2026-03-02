@@ -20,10 +20,6 @@ function getPathParam(call: ToolCall): string | null {
   return typeof p === 'string' ? p : null;
 }
 
-const WRITE_TOOLS = new Set([
-  'write_file', 'write', 'create_file',
-]);
-
 type NamingConvention = 'kebab-case' | 'camelCase' | 'PascalCase' | 'snake_case' | 'mixed';
 
 /** Classify a filename into its naming convention by testing regex patterns */
@@ -72,8 +68,8 @@ function getMajorityConvention(files: string[]): NamingConvention | null {
  */
 const fileNamingConvention: Rule = {
   name: 'file-naming-convention',
-  matches(call) {
-    return WRITE_TOOLS.has(call.tool.toLowerCase()) && getPathParam(call) !== null;
+  matches(call, ctx) {
+    return ctx.tools.isWrite(call.tool) && getPathParam(call) !== null;
   },
   async validate(call) {
     const path = getPathParam(call)!;
@@ -87,7 +83,7 @@ const fileNamingConvention: Rule = {
     // Get existing files in the same directory
     let siblings: string[];
     try {
-      siblings = readdirSync(dir).filter((f) => !f.startsWith('.'));
+      siblings = readdirSync(dir).filter((f: string) => !f.startsWith('.'));
     } catch {
       return { status: 'pass', rule: 'file-naming-convention', message: 'Could not read directory' };
     }
@@ -120,8 +116,8 @@ const fileNamingConvention: Rule = {
  */
 const namingMistakes: Rule = {
   name: 'naming-mistakes',
-  matches(call) {
-    return WRITE_TOOLS.has(call.tool.toLowerCase()) && getPathParam(call) !== null;
+  matches(call, ctx) {
+    return ctx.tools.isWrite(call.tool) && getPathParam(call) !== null;
   },
   async validate(call) {
     const path = getPathParam(call)!;

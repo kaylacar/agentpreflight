@@ -39,7 +39,7 @@ export interface ValidationResult {
 export interface Rule {
   name: string;
   /** Return true if this rule should run for the given tool call */
-  matches: (call: ToolCall) => boolean;
+  matches: (call: ToolCall, context: PreflightContext) => boolean;
   /** Run the validation check. Always async because some rules need filesystem/git access */
   validate: (call: ToolCall, context: PreflightContext) => Promise<ValidationResult>;
 }
@@ -59,6 +59,8 @@ export interface PreflightContext {
   inFlight: InFlightTracker;
   /** Local environment manifest — repo names → absolute paths, named paths */
   manifest?: import('./manifest.js').EnvManifest;
+  /** Tool name matcher — classifies tool names into categories (write, read, bash, network) */
+  tools: import('./tools.js').ToolMatcher;
 }
 
 /**
@@ -77,6 +79,8 @@ export interface PreflightOptions {
   manifestPath?: string;
   /** Inline manifest — skips file loading, useful for testing */
   manifest?: import('./manifest.js').EnvManifest;
+  /** Custom tool name mappings — extends the built-in defaults */
+  toolMappings?: import('./tools.js').ToolMappings;
 }
 
 /**
@@ -90,7 +94,7 @@ export interface Preflight {
 }
 
 /** Built-in rule set names */
-export type RuleSet = 'filesystem' | 'git' | 'naming' | 'environment' | 'parallel' | 'network' | 'secrets' | 'scope' | 'json-validation' | 'html-security';
+export type RuleSet = 'filesystem' | 'git' | 'naming' | 'environment' | 'parallel' | 'network' | 'secrets' | 'scope' | 'json-validation' | 'html-security' | 'yaml-validation';
 
 /**
  * Tracks in-flight tool calls for parallel agent conflict detection.

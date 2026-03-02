@@ -9,11 +9,7 @@
  * - html-security: warns/fails when dangerous DOM patterns are detected in content
  */
 
-import type { Rule, ToolCall, ValidationResult } from '../types.js';
-
-const WRITE_TOOLS = new Set([
-  'write_file', 'write', 'edit', 'edit_file', 'create_file', 'notebookedit',
-]);
+import type { Rule, ToolCall, PreflightContext, ValidationResult } from '../types.js';
 
 const HTML_JS_EXTENSIONS = ['.html', '.htm', '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.vue', '.svelte'];
 
@@ -74,8 +70,8 @@ const SECURITY_PATTERNS: SecurityPattern[] = [
 
 const htmlSecurityCheck: Rule = {
   name: 'html-security',
-  matches(call) {
-    if (!WRITE_TOOLS.has(call.tool.toLowerCase())) return false;
+  matches(call, ctx) {
+    if (!ctx.tools.isWrite(call.tool)) return false;
     const path = getPathParam(call);
     if (!path) return false;
     if (!isHtmlOrJs(path)) return false;

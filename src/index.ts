@@ -16,8 +16,11 @@ import { promisify } from 'node:util';
 import { homedir } from 'node:os';
 import { RuleEngine } from './engine.js';
 import { loadManifest } from './manifest.js';
+import { createToolMatcher } from './tools.js';
 export { loadManifest, resolveRepo, resolvePath, getEnv } from './manifest.js';
 export type { EnvManifest } from './manifest.js';
+export { createToolMatcher, DEFAULT_TOOL_MAPPINGS } from './tools.js';
+export type { ToolMappings, ToolMatcher } from './tools.js';
 import { environmentRules } from './rules/environment.js';
 import { filesystemRules } from './rules/filesystem.js';
 import { gitRules } from './rules/git.js';
@@ -28,6 +31,7 @@ import { secretsRules } from './rules/secrets.js';
 import { scopeRules } from './rules/scope.js';
 import { jsonValidationRules } from './rules/json-validation.js';
 import { htmlSecurityRules } from './rules/html-security.js';
+import { yamlValidationRules } from './rules/yaml-validation.js';
 import type {
   Preflight,
   PreflightOptions,
@@ -64,6 +68,7 @@ const RULE_SETS: Record<RuleSet, Rule[]> = {
   scope: scopeRules,
   'json-validation': jsonValidationRules,
   'html-security': htmlSecurityRules,
+  'yaml-validation': yamlValidationRules,
 };
 
 /**
@@ -90,6 +95,7 @@ export function createPreflight(options: PreflightOptions = {}): Preflight {
     exec: options.exec ?? defaultExec,
     inFlight: tracker,
     manifest: options.manifest, // inline manifest takes priority
+    tools: createToolMatcher(options.toolMappings),
   };
 
   // Load manifest from disk if not provided inline — store promise so validate() can await it
@@ -102,7 +108,7 @@ export function createPreflight(options: PreflightOptions = {}): Preflight {
       });
 
   // Load rule sets — strings load built-in sets, objects are custom rules
-  const ruleSets = options.rules ?? ['filesystem', 'git', 'environment', 'naming', 'parallel', 'network', 'secrets', 'scope', 'json-validation', 'html-security'];
+  const ruleSets = options.rules ?? ['filesystem', 'git', 'environment', 'naming', 'parallel', 'network', 'secrets', 'scope', 'json-validation', 'html-security', 'yaml-validation'];
   for (const rule of ruleSets) {
     if (typeof rule === 'string') {
       const builtIn = RULE_SETS[rule as RuleSet];

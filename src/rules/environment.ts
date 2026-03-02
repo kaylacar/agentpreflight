@@ -35,20 +35,14 @@ function getCommandParam(call: ToolCall): string | null {
   return typeof c === 'string' ? c : null;
 }
 
-/** Tool names that operate on files (case-insensitive matching in rules) */
-const FILE_TOOLS = new Set([
-  'write_file', 'write', 'read_file', 'read', 'edit', 'edit_file',
-  'create_file', 'glob', 'grep',
-]);
-
 /**
  * Detects when a path targets a folder that's been redirected to OneDrive.
  * e.g. C:\Users\teche\Desktop is actually C:\Users\teche\OneDrive\Desktop
  */
 const onedriveRedirect: Rule = {
   name: 'onedrive-redirect',
-  matches(call) {
-    if (!FILE_TOOLS.has(call.tool.toLowerCase())) return false;
+  matches(call, ctx) {
+    if (!ctx.tools.isFile(call.tool)) return false;
     return getPathParam(call) !== null;
   },
   async validate(call, ctx) {
@@ -149,8 +143,8 @@ const homeDirResolution: Rule = {
  */
 const devNullPlatform: Rule = {
   name: 'devnull-platform',
-  matches(call) {
-    if (call.tool.toLowerCase() !== 'bash') return false;
+  matches(call, ctx) {
+    if (!ctx.tools.isBash(call.tool)) return false;
     return getCommandParam(call) !== null;
   },
   async validate(call, ctx) {

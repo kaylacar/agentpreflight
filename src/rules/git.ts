@@ -6,7 +6,7 @@
  * These rules intercept bash commands containing git operations and validate
  * them against the actual repo state.
  *
- * All git rules only match tool calls where tool === 'bash' and the command
+ * All git rules only match tool calls where tool is a bash tool and the command
  * contains 'git'. They use the injectable exec function from context to run
  * git commands, making them fully testable with mocked responses.
  *
@@ -34,8 +34,8 @@ function isGitCommand(cmd: string): boolean {
  */
 const forcePushProtection: Rule = {
   name: 'force-push-protection',
-  matches(call) {
-    if (call.tool.toLowerCase() !== 'bash') return false;
+  matches(call, ctx) {
+    if (!ctx.tools.isBash(call.tool)) return false;
     const cmd = getCommandParam(call);
     return cmd !== null && isGitCommand(cmd) && cmd.includes('push');
   },
@@ -63,8 +63,8 @@ const forcePushProtection: Rule = {
  */
 const pushUpstreamCheck: Rule = {
   name: 'push-upstream-check',
-  matches(call) {
-    if (call.tool.toLowerCase() !== 'bash') return false;
+  matches(call, ctx) {
+    if (!ctx.tools.isBash(call.tool)) return false;
     const cmd = getCommandParam(call);
     return cmd !== null && isGitCommand(cmd) && /\bpush\b/.test(cmd);
   },
@@ -125,8 +125,8 @@ const pushUpstreamCheck: Rule = {
  */
 const stagingVerification: Rule = {
   name: 'staging-verification',
-  matches(call) {
-    if (call.tool.toLowerCase() !== 'bash') return false;
+  matches(call, ctx) {
+    if (!ctx.tools.isBash(call.tool)) return false;
     const cmd = getCommandParam(call);
     return cmd !== null && isGitCommand(cmd) && /\bcommit\b/.test(cmd);
   },
@@ -147,7 +147,7 @@ const stagingVerification: Rule = {
 
       // Check for sensitive files in staging
       const sensitivePatterns = ['.env', 'credentials', 'secrets', '.pem', '.key', 'id_rsa'];
-      const sensitiveFiles = files.filter((f) =>
+      const sensitiveFiles = files.filter((f: string) =>
         sensitivePatterns.some((p) => f.toLowerCase().includes(p))
       );
 
@@ -183,8 +183,8 @@ const stagingVerification: Rule = {
  */
 const branchProtection: Rule = {
   name: 'branch-protection',
-  matches(call) {
-    if (call.tool.toLowerCase() !== 'bash') return false;
+  matches(call, ctx) {
+    if (!ctx.tools.isBash(call.tool)) return false;
     const cmd = getCommandParam(call);
     return cmd !== null && isGitCommand(cmd);
   },
@@ -228,8 +228,8 @@ const branchProtection: Rule = {
  */
 const noVerifyDetection: Rule = {
   name: 'no-verify-detection',
-  matches(call) {
-    if (call.tool.toLowerCase() !== 'bash') return false;
+  matches(call, ctx) {
+    if (!ctx.tools.isBash(call.tool)) return false;
     const cmd = getCommandParam(call);
     return cmd !== null && isGitCommand(cmd) && cmd.includes('--no-verify');
   },

@@ -9,11 +9,7 @@
  * - json-syntax-validation: fails when content written to .json file is not valid JSON
  */
 
-import type { Rule, ToolCall, ValidationResult } from '../types.js';
-
-const WRITE_TOOLS = new Set([
-  'write_file', 'write', 'edit', 'edit_file', 'create_file', 'notebookedit',
-]);
+import type { Rule, ToolCall, PreflightContext, ValidationResult } from '../types.js';
 
 function getPathParam(call: ToolCall): string | null {
   const p = call.params.path ?? call.params.file_path ?? call.params.file ?? null;
@@ -27,8 +23,8 @@ function getContent(call: ToolCall): string | null {
 
 const jsonSyntaxValidation: Rule = {
   name: 'json-syntax-validation',
-  matches(call) {
-    if (!WRITE_TOOLS.has(call.tool.toLowerCase())) return false;
+  matches(call, ctx) {
+    if (!ctx.tools.isWrite(call.tool)) return false;
     const path = getPathParam(call);
     if (!path) return false;
     return path.toLowerCase().endsWith('.json');

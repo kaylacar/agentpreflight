@@ -1,11 +1,6 @@
 import { resolve } from 'node:path';
 import type { Rule, ToolCall, ValidationResult, PreflightContext } from '../types.js';
 
-const FILE_TOOLS = new Set([
-  'write_file', 'write', 'edit', 'edit_file', 'create_file', 'notebookedit',
-  'read_file', 'read', 'delete_file', 'move_file',
-]);
-
 const SYSTEM_DIRS: RegExp[] = [
   /^\/etc\//,
   /^\/usr\//,
@@ -32,8 +27,8 @@ function getPathParam(call: ToolCall): string | null {
 
 const pathTraversal: Rule = {
   name: 'scope-path-traversal',
-  matches(call) {
-    return FILE_TOOLS.has(call.tool.toLowerCase()) && getPathParam(call) !== null;
+  matches(call, ctx) {
+    return ctx.tools.isFile(call.tool) && getPathParam(call) !== null;
   },
   async validate(call, context: PreflightContext): Promise<ValidationResult> {
     const raw = getPathParam(call)!;
@@ -54,12 +49,8 @@ const pathTraversal: Rule = {
 
 const systemDirWrite: Rule = {
   name: 'scope-system-dir-write',
-  matches(call) {
-    const writeTools = new Set([
-      'write_file', 'write', 'edit', 'edit_file', 'create_file', 'notebookedit',
-      'delete_file', 'move_file',
-    ]);
-    return writeTools.has(call.tool.toLowerCase()) && getPathParam(call) !== null;
+  matches(call, ctx) {
+    return ctx.tools.isWrite(call.tool) && getPathParam(call) !== null;
   },
   async validate(call, context: PreflightContext): Promise<ValidationResult> {
     const raw = getPathParam(call)!;
