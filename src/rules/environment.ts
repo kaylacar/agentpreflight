@@ -175,9 +175,68 @@ const devNullPlatform: Rule = {
   },
 };
 
+/**
+ * Detects tool calls that reference a repo by name without a full path,
+ * and resolves it using the environment manifest when available.
+ *
+ * e.g. path: 'machinepolicy.org/index.html' → 'C:/Users/teche/machinepolicy.org/index.html'
+ */
+const repoPathResolution: Rule = {
+  name: 'repo-path-resolution',
+  matches(call) {
+    return getPathParam(call) !== null;
+  },
+  async validate(call, ctx) {
+    if (!ctx.manifest) {
+      return { status: 'pass', rule: 'repo-path-resolution', message: 'No manifest — skipped' };
+    }
+
+    const path = getPathParam(call)!;
+
+    // Skip if already absolute
+    const isAbsolute = path.startsWith('/') || /^[A-Za-z]:/.test(path);
+    if (isAbsolute) {
+      return { status: 'pass', rule: 'repo-path-resolution', message: 'Path is absolute' };
+    }
+
+    // Check if path starts with a known repo name
+    for (const [repoName, repoPath] of Object.entries(ctx.manifest.repos)) {
+      if (path === repoName || path.startsWith(`${repoName}/`) || path.startsWith(`${repoName}\\`)) {
+        const remainder = path.slice(repoName.length);
+        const resolved = `${repoPath}${remainder}`;
+        return {
+          status: 'warn',
+          rule: 'repo-path-resolution',
+          message: `Resolved repo '${repoName}' to local path`,
+          suggestion: resolved,
+        };
+      }
+    }
+
+    // Check named paths
+    if (ctx.manifest.paths) {
+      for (const [name, resolvedPath] of Object.entries(ctx.manifest.paths)) {
+        if (path === name || path.startsWith(`${name}/`) || path.startsWith(`${name}\\`)) {
+          const remainder = path.slice(name.length);
+          const resolved = `${resolvedPath}${remainder}`;
+          return {
+            status: 'warn',
+            rule: 'repo-path-resolution',
+            message: `Resolved named path '${name}' to local path`,
+            suggestion: resolved,
+          };
+        }
+      }
+    }
+
+    return { status: 'pass', rule: 'repo-path-resolution', message: 'No manifest match' };
+  },
+};
+
 export const environmentRules: Rule[] = [
   onedriveRedirect,
   platformPathSep,
   homeDirResolution,
   devNullPlatform,
+  repoPathResolution,
 ];

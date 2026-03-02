@@ -57,6 +57,8 @@ export interface PreflightContext {
   exec: (cmd: string, args: string[], cwd?: string) => Promise<string>;
   /** Tracks concurrent tool calls across parallel agents for conflict detection */
   inFlight: InFlightTracker;
+  /** Local environment manifest — repo names → absolute paths, named paths */
+  manifest?: import('./manifest.js').EnvManifest;
 }
 
 /**
@@ -71,6 +73,10 @@ export interface PreflightOptions {
   homeDir?: string;
   /** Override the default shell exec — primarily useful for testing */
   exec?: (cmd: string, args: string[], cwd?: string) => Promise<string>;
+  /** Path to the local environment manifest (~/.preflight-env.json by default) */
+  manifestPath?: string;
+  /** Inline manifest — skips file loading, useful for testing */
+  manifest?: import('./manifest.js').EnvManifest;
 }
 
 /**

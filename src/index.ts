@@ -15,6 +15,9 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { homedir } from 'node:os';
 import { RuleEngine } from './engine.js';
+import { loadManifest } from './manifest.js';
+export { loadManifest, resolveRepo, resolvePath, getEnv } from './manifest.js';
+export type { EnvManifest } from './manifest.js';
 import { environmentRules } from './rules/environment.js';
 import { filesystemRules } from './rules/filesystem.js';
 import { gitRules } from './rules/git.js';
@@ -68,6 +71,8 @@ const RULE_SETS: Record<RuleSet, Rule[]> = {
  * - cwd: override process.cwd()
  * - homeDir: override os.homedir()
  * - exec: override shell command execution (useful for mocking git in tests)
+ * - manifestPath: path to ~/.preflight-env.json (default). Loads repo/path map for resolution.
+ * - manifest: inline manifest object — skips file loading, useful for testing
  */
 export function createPreflight(options: PreflightOptions = {}): Preflight {
   const engine = new RuleEngine();
@@ -80,7 +85,17 @@ export function createPreflight(options: PreflightOptions = {}): Preflight {
     homeDir: options.homeDir ?? homedir(),
     exec: options.exec ?? defaultExec,
     inFlight: tracker,
+    manifest: options.manifest, // inline manifest takes priority
   };
+
+  // Load manifest from disk if not provided inline, then update context
+  if (!context.manifest) {
+    loadManifest(options.manifestPath).then((m) => {
+      if (m) context.manifest = m;
+    }).catch(() => {
+      // Manifest load failure is non-fatal — just skip resolution
+    });
+  }
 
   // Load rule sets — strings load built-in sets, objects are custom rules
   const ruleSets = options.rules ?? ['filesystem', 'git', 'environment', 'naming', 'parallel', 'network', 'secrets', 'scope'];
