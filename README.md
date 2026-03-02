@@ -34,11 +34,12 @@ if (hasFailures(results)) {
 **Purpose:** Pre-flight validation SDK for AI agent tool calls. Prevents filesystem errors, git mistakes, secret leaks, and path resolution failures before execution.
 
 **Capabilities:**
-- Validate tool calls before execution (`filesystem`, `git`, `secrets`, `environment`, `naming`, `network`, `parallel`, `scope`)
+- Validate tool calls before execution (`filesystem`, `git`, `secrets`, `environment`, `naming`, `network`, `parallel`, `scope`, `json-validation`, `html-security`, `yaml-validation`)
 - Resolve local repo paths without asking the user (`getEnv`, `resolveRepo`)
 - Detect and correct platform path errors, OneDrive redirects, wrong separators
 - Block force pushes to main, secret commits, writes to nonexistent directories
 - Catch cross-agent file conflicts in parallel execution environments
+- Declare custom tool name mappings via `toolMappings` option
 
 **Integration pattern:**
 
@@ -313,8 +314,6 @@ Validates file operations before they touch disk.
 | `symlink-resolution` | path is a symlink to a different location | warn + real path |
 | `sensitive-file-write` | write to `.env`, credentials, keys, etc. | warn |
 
-**Matched tools:** `write_file`, `write`, `edit`, `edit_file`, `create_file`, `notebookedit`
-
 ### `git`
 
 Validates git operations in bash commands.
@@ -330,8 +329,6 @@ Validates git operations in bash commands.
 | `branch-protection` | destructive ops on main/master | warn |
 | `no-verify-detection` | `--no-verify` flag | warn |
 
-**Matched tools:** `bash` (commands containing `git`)
-
 ### `environment`
 
 Catches platform and path mismatches.
@@ -341,10 +338,8 @@ Catches platform and path mismatches.
 | `onedrive-redirect` | Windows path missing OneDrive segment | warn + corrected path |
 | `platform-path-sep` | wrong slash direction for the OS | warn + corrected path |
 | `home-dir-resolution` | tilde path (`~/...`) | warn + expanded path |
-| `devnull-platform` | `NUL` on Unix or `/dev/null` wrong | warn |
+| `devnull-platform` | `NUL` on Unix | warn + corrected command |
 | `repo-path-resolution` | relative repo name resolvable via manifest | warn + absolute path |
-
-**Matched tools:** all file tools + bash
 
 ### `secrets`
 
@@ -363,36 +358,106 @@ Enforces file naming conventions and catches common mistakes.
 
 | Rule | Triggers on | Result |
 |------|-------------|--------|
-| `no-spaces-in-filename` | spaces in filename | fail |
-| `no-uppercase-in-path` | uppercase in filename (configurable) | warn |
-| `extension-mismatch` | content doesn't match file extension | warn |
+| `file-naming-convention` | new file doesn't match sibling naming convention (kebab-case, camelCase, PascalCase, snake_case) | warn |
+| `naming-mistakes` | duplicate extensions (`.ts.ts`), spaces in code filenames | warn |
 
 ### `network`
 
-Validates network operations in bash commands.
+Validates network requests and URLs.
 
 | Rule | Triggers on | Result |
 |------|-------------|--------|
-| `no-http-in-production` | HTTP (not HTTPS) URLs in commands | warn |
-| `localhost-in-production` | localhost URLs that look production-bound | warn |
+| `network-dangerous-protocol` | `file:`, `javascript:`, `data:`, `ftp:` protocols | fail |
+| `network-internal-access` | requests to 127.x, 10.x, 192.168.x, localhost | warn |
+| `network-secret-in-headers` | credentials in HTTP headers (Authorization, API keys) | warn |
+| `network-http-not-https` | unencrypted `http://` URL | warn |
 
 ### `parallel`
 
-Detects conflicts when multiple agents run simultaneously.
+Detects conflicts when multiple agents run simultaneously. Requires `agentId` on tool calls.
 
 | Rule | Triggers on | Result |
 |------|-------------|--------|
-| `cross-agent-file-conflict` | two agents writing the same file | fail |
-| `cross-agent-git-conflict` | two agents running git operations | warn |
+| `parallel-file-conflict` | two agents writing the same file | fail |
+| `parallel-git-conflict` | staging + committing in parallel, or branch switch during other git ops | fail |
+| `parallel-git-conflict` | multiple parallel pushes | warn |
 
 ### `scope`
 
-Catches tool calls that exceed what was asked.
+Prevents writes outside the working directory and into system directories.
 
 | Rule | Triggers on | Result |
 |------|-------------|--------|
-| `write-outside-cwd` | write to path outside working directory | warn |
-| `bash-dangerous-command` | `rm -rf`, `chmod 777`, `sudo`, etc. | warn or fail |
+| `scope-path-traversal` | path escapes working directory (e.g. `../../etc/passwd`) | fail |
+| `scope-system-dir-write` | write to `/etc`, `/usr`, `/bin`, `C:\Windows`, `C:\System32`, etc. | fail |
+
+### `json-validation`
+
+Validates JSON syntax before writing to `.json` files.
+
+| Rule | Triggers on | Result |
+|------|-------------|--------|
+| `json-syntax-validation` | invalid JSON (trailing commas, truncated, unquoted keys) | fail |
+
+### `html-security`
+
+Scans HTML/JS/TS file writes for XSS vectors.
+
+| Rule | Triggers on | Result |
+|------|-------------|--------|
+| `html-security` | `eval()` in file content | fail |
+| `html-security` | `innerHTML =`, `document.write()`, `new Function()`, `outerHTML =` | warn |
+
+### `yaml-validation`
+
+Validates YAML syntax before writing to `.yml`/`.yaml` files.
+
+| Rule | Triggers on | Result |
+|------|-------------|--------|
+| `yaml-syntax-validation` | tab indentation (YAML requires spaces) | fail |
+| `yaml-syntax-validation` | unclosed quotes | fail |
+| `yaml-syntax-validation` | duplicate top-level keys | fail |
+
+---
+
+## Tool name mappings
+
+Different AI tools use different names for the same operation. By default, agentpreflight recognizes names from Claude Code, Cursor, Copilot, and common variants.
+
+If your tool uses non-standard names, extend the defaults:
+
+```ts
+const pf = createPreflight({
+  toolMappings: {
+    write: ['SaveFile', 'create_document'],
+    bash: ['terminal', 'run_script'],
+    read: ['load_file'],
+    network: ['api_call'],
+  },
+});
+```
+
+Custom names are added to the built-in defaults (not replacing them). All matching is case-insensitive.
+
+**Default mappings:**
+
+| Category | Tool names |
+|----------|-----------|
+| `write` | `write_file`, `write`, `edit`, `edit_file`, `create_file`, `notebookedit`, `delete_file`, `move_file` |
+| `read` | `read_file`, `read`, `glob`, `grep` |
+| `bash` | `bash`, `shell`, `run_command`, `execute` |
+| `network` | `web_fetch`, `webfetch`, `fetch`, `http_request`, `httprequest`, `curl`, `wget`, `request`, `get`, `post` |
+
+You can also use the matcher standalone:
+
+```ts
+import { createToolMatcher } from 'agentpreflight';
+
+const tools = createToolMatcher({ write: ['SaveFile'] });
+tools.isWrite('SaveFile'); // true
+tools.isWrite('write');    // true (built-in still works)
+tools.isFile('SaveFile');  // true (isFile = isWrite || isRead)
+```
 
 ---
 
@@ -402,6 +467,9 @@ Catches tool calls that exceed what was asked.
 const pf = createPreflight({
   // Rule sets to load. Default: all. Mix strings and custom Rule objects.
   rules: ['filesystem', 'git', myCustomRule],
+
+  // Custom tool name mappings — extends built-in defaults
+  toolMappings: { write: ['SaveFile'], bash: ['terminal'] },
 
   // Platform override — useful for cross-platform testing
   platform: 'win32',
@@ -438,9 +506,8 @@ import type { Rule } from 'agentpreflight';
 
 const noTodoFiles: Rule = {
   name: 'no-todo-files',
-  matches(call) {
-    const path = call.params.path ?? call.params.file_path;
-    return typeof path === 'string' && call.tool.toLowerCase() === 'write';
+  matches(call, ctx) {
+    return ctx.tools.isWrite(call.tool) && typeof call.params.path === 'string';
   },
   async validate(call) {
     const path = call.params.path as string;
@@ -457,6 +524,8 @@ const noTodoFiles: Rule = {
 
 const pf = createPreflight({ rules: ['filesystem', noTodoFiles] });
 ```
+
+Custom rules receive `PreflightContext` in both `matches(call, ctx)` and `validate(call, ctx)`. Use `ctx.tools` to classify tool names, `ctx.platform` for OS checks, `ctx.exec` to run shell commands.
 
 ---
 
@@ -477,6 +546,14 @@ Runs all matching rules. Returns one result per matching rule.
 ### `pf.addRule(rule)`
 
 Add a custom rule after initialization.
+
+### `createToolMatcher(mappings?)`
+
+```ts
+createToolMatcher(mappings?: ToolMappings): ToolMatcher
+```
+
+Create a standalone tool matcher. Returns an object with `isWrite()`, `isRead()`, `isFile()`, `isBash()`, `isNetwork()`.
 
 ### `getEnv(manifestPath?)`
 
@@ -510,21 +587,14 @@ loadManifest(manifestPath?: string): Promise<EnvManifest | null>
 
 Load and parse the manifest file directly.
 
-### `hasFailures(results)`
+### `hasFailures(results)` / `hasWarnings(results)`
 
 ```ts
 hasFailures(results: ValidationResult[]): boolean
-```
-
-Returns `true` if any result has `status: 'fail'`. Use this to decide whether to abort a tool call.
-
-### `hasWarnings(results)`
-
-```ts
 hasWarnings(results: ValidationResult[]): boolean
 ```
 
-Returns `true` if any result has `status: 'warn'`.
+Check results for failures or warnings. Use `hasFailures` to decide whether to abort a tool call.
 
 ### `formatResults(results)`
 
@@ -558,6 +628,27 @@ interface ValidationResult {
   rule: string;
   message: string;
   suggestion?: string; // corrected value or next step
+}
+
+interface Rule {
+  name: string;
+  matches: (call: ToolCall, context: PreflightContext) => boolean;
+  validate: (call: ToolCall, context: PreflightContext) => Promise<ValidationResult>;
+}
+
+interface ToolMappings {
+  write?: string[];
+  read?: string[];
+  bash?: string[];
+  network?: string[];
+}
+
+interface ToolMatcher {
+  isWrite(tool: string): boolean;
+  isRead(tool: string): boolean;
+  isFile(tool: string): boolean;   // isWrite || isRead
+  isBash(tool: string): boolean;
+  isNetwork(tool: string): boolean;
 }
 
 interface EnvManifest {
