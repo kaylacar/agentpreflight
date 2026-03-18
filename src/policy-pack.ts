@@ -21,6 +21,8 @@ export const baselinePolicies: Record<string, PreflightPolicyPack> = {
     mode: "enforce",
     enabledRuleSets: ["filesystem", "git", "secrets", "environment", "scope", "release", "session", "prewrite", "time-estimation"],
     destructiveRequireToken: true,
+    autoPatchAllowedRules: ["force-push-protection", "platform-path-sep", "onedrive-redirect"],
+    requireCalibrationOnEstimates: true,
     prewriteChecks: { enabled: true, maxBytes: 350000, tsRequireTypeHints: false },
   },
   enterprise: {
@@ -28,6 +30,8 @@ export const baselinePolicies: Record<string, PreflightPolicyPack> = {
     mode: "enforce",
     enabledRuleSets: ["filesystem", "git", "secrets", "environment", "naming", "parallel", "network", "scope", "release", "session", "prewrite", "time-estimation"],
     destructiveRequireToken: true,
+    autoPatchAllowedRules: ["platform-path-sep", "onedrive-redirect"],
+    requireCalibrationOnEstimates: true,
     prewriteChecks: { enabled: true, maxBytes: 250000, tsRequireTypeHints: true },
   },
   speed: {
@@ -35,6 +39,8 @@ export const baselinePolicies: Record<string, PreflightPolicyPack> = {
     mode: "warn-only",
     enabledRuleSets: ["filesystem", "git", "secrets", "scope", "release", "time-estimation"],
     destructiveRequireToken: false,
+    autoPatchAllowedRules: ["force-push-protection", "platform-path-sep", "onedrive-redirect"],
+    requireCalibrationOnEstimates: false,
     prewriteChecks: { enabled: false },
   },
 };

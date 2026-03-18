@@ -51,6 +51,30 @@ const timeEstimateSchema: Rule = {
   },
 };
 
+const timeEstimateCalibrationRequired: Rule = {
+  name: "time-estimation-calibration-required",
+  matches(call) {
+    const tool = call.tool.toLowerCase();
+    return tool.includes("estimate") || "best_case_minutes" in call.params || "p90_minutes" in call.params;
+  },
+  async validate(call, context) {
+    if (!context.policyPack?.requireCalibrationOnEstimates) {
+      return { status: "pass", rule: "time-estimation-calibration-required", message: "Calibration requirement disabled" };
+    }
+    const hasMissRate = !Number.isNaN(asNumber(call.params.recent_p90_miss_rate));
+    const hasAvgError = !Number.isNaN(asNumber(call.params.recent_avg_error_pct));
+    if (!hasMissRate || !hasAvgError) {
+      return {
+        status: "fail",
+        rule: "time-estimation-calibration-required",
+        message: "Estimate missing calibration context",
+        suggestion: "Include recent_p90_miss_rate and recent_avg_error_pct",
+      };
+    }
+    return { status: "pass", rule: "time-estimation-calibration-required", message: "Calibration context present" };
+  },
+};
+
 const timeEstimateVagueness: Rule = {
   name: "time-estimation-vagueness",
   matches(call) {
@@ -96,4 +120,9 @@ const timeEstimateCalibrationDrift: Rule = {
   },
 };
 
-export const timeEstimationRules: Rule[] = [timeEstimateSchema, timeEstimateVagueness, timeEstimateCalibrationDrift];
+export const timeEstimationRules: Rule[] = [
+  timeEstimateSchema,
+  timeEstimateVagueness,
+  timeEstimateCalibrationRequired,
+  timeEstimateCalibrationDrift,
+];

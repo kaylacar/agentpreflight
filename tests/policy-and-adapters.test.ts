@@ -15,6 +15,32 @@ describe("policy modes and adapters", () => {
     expect(call.source).toBe("claude");
   });
 
+  it("adapts cursor schema variants", () => {
+    const call = adaptToolCall(
+      {
+        name: "Bash",
+        arguments: { cmd: "echo hi" },
+      },
+      "cursor"
+    );
+    expect(call.tool).toBe("Bash");
+    expect(call.params.command).toBe("echo hi");
+    expect(call.source).toBe("cursor");
+  });
+
+  it("adapts codex schema variants", () => {
+    const call = adaptToolCall(
+      {
+        recipient_name: "functions.shell_command",
+        parameters: { command: "git status" },
+      },
+      "codex"
+    );
+    expect(call.tool).toBe("functions.shell_command");
+    expect(call.params.command).toBe("git status");
+    expect(call.source).toBe("codex");
+  });
+
   it("warn-only mode downgrades failures", async () => {
     const pf = createPreflight({ rules: ["release"], policyMode: "warn-only" });
     const results = await pf.validateWithPolicy({

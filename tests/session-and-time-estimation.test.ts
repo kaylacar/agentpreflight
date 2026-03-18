@@ -28,4 +28,22 @@ describe("session + time estimation rules", () => {
     });
     expect(results.some((r) => r.rule === "time-estimation-schema" && r.status === "fail")).toBe(true);
   });
+
+  it("fails when calibration is required but missing", async () => {
+    const pf = createPreflight({
+      rules: ["time-estimation"],
+      policyPack: { requireCalibrationOnEstimates: true },
+    });
+    const results = await pf.validate({
+      tool: "estimate",
+      params: {
+        scope: "phase 2",
+        assumptions: "no blockers",
+        best_case_minutes: 30,
+        p90_minutes: 60,
+        confidence: 0.6,
+      },
+    });
+    expect(results.some((r) => r.rule === "time-estimation-calibration-required" && r.status === "fail")).toBe(true);
+  });
 });

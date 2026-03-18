@@ -27,6 +27,8 @@ export { replayToolCallsFromFile } from "./ci.js";
 export { recordTimeEstimate, estimateDrift } from "./time-calibration.js";
 export { adaptToolCall, type InputSchema } from "./adapters.js";
 export { loadPolicyPack, loadPolicyPackSync, baselinePolicies, loadBaselinePolicyTemplate } from "./policy-pack.js";
+export { runOvernightPlan, persistRunState } from "./overnight.js";
+export type { OvernightPlan, OvernightChunk, OvernightStep, OvernightRunState, CommandRunResult } from "./overnight.js";
 import type {
   Preflight,
   PreflightOptions,
@@ -169,7 +171,7 @@ export function createPreflight(options: PreflightOptions = {}): Preflight {
     async preflightCommand(call: ToolCall): Promise<{ results: ValidationResult[]; blocked: boolean; patchedCall?: ToolCall }> {
       const results = await runValidation(call);
       const blocked = results.some((r) => r.status === "fail");
-      const patchedCall = !blocked ? buildPatchedCall(call, results) : undefined;
+      const patchedCall = !blocked ? buildPatchedCall(call, results, context.policyPack) : undefined;
       return { results, blocked, patchedCall };
     },
     addRule(rule: Rule) {

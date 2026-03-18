@@ -44,10 +44,13 @@ Optimized for both humans and agents: machine-readable validation results for au
 - Deterministic policy modes: `enforce`, `audit-only`, `warn-only` (default: `enforce`)
 - Version-compat adapters: `claude`, `cursor`, `codex`, and raw tool-call schema
 - Pre-write content gates (size/type-hint checks) and session checkpoints for destructive commands
+- Pre-write external toolchain gates (`lintCommand`, `typecheckCommand`) configurable per extension
 - Command rewrite support via `patch` for safe auto-fixes (e.g. `--force` -> `--force-with-lease`)
+- Auto-patch allowlist (`autoPatchAllowedRules`) to constrain what can be rewritten automatically
 - Structured telemetry JSONL output for pass/warn/fail and top failing rules
 - CI replay support to validate planned tool-call lists and fail on policy violations
 - Baseline policy templates: `startup-safe`, `enterprise`, `speed`
+- Time-estimation guardrails with optional mandatory calibration context
 
 **Integration pattern:**
 
@@ -142,6 +145,16 @@ npm run preflight:exec -- --command "git push origin master"
 ```
 
 This wrapper blocks execution on `fail` and only runs the command if preflight passes.
+
+For unattended runs with chunking, retries, gates, and state persistence:
+
+```bash
+npm run build
+cp templates/overnight.plan.json .preflight/overnight.plan.json
+npm run preflight:overnight -- --plan .preflight/overnight.plan.json
+```
+
+This command fails closed. It validates every command before running, enforces gate commands per chunk, retries only up to max attempts, and writes resumable state to `.preflight/overnight.state.json` plus handoff notes to `.preflight/agent-log.md`.
 
 ### Gstack-style quick install
 

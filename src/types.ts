@@ -53,7 +53,12 @@ export interface PreflightPolicyPack {
     enabled?: boolean;
     maxBytes?: number;
     tsRequireTypeHints?: boolean;
+    lintCommand?: string;
+    typecheckCommand?: string;
+    applyToExtensions?: string[];
   };
+  autoPatchAllowedRules?: string[];
+  requireCalibrationOnEstimates?: boolean;
 }
 
 export interface PreflightContext {

@@ -10,6 +10,8 @@
     "time-estimation"
   ],
   "destructiveRequireToken": false,
+  "autoPatchAllowedRules": ["force-push-protection", "platform-path-sep", "onedrive-redirect"],
+  "requireCalibrationOnEstimates": false,
   "prewriteChecks": {
     "enabled": false
   }

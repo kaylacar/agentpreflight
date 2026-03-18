@@ -21,7 +21,8 @@
     "typecheck": "tsc --noEmit",
     "setup:claude": "node setup/claude-hook.mjs",
     "preflight:ci": "node setup/replay-ci.mjs",
-    "preflight:exec": "node setup/preflight-exec.mjs"
+    "preflight:exec": "node setup/preflight-exec.mjs",
+    "preflight:overnight": "node setup/preflight-overnight.mjs"
   },
   "keywords": [
     "validation",

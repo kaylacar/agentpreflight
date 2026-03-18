@@ -16,9 +16,14 @@
     "time-estimation"
   ],
   "destructiveRequireToken": true,
+  "autoPatchAllowedRules": ["platform-path-sep", "onedrive-redirect"],
+  "requireCalibrationOnEstimates": true,
   "prewriteChecks": {
     "enabled": true,
     "maxBytes": 250000,
-    "tsRequireTypeHints": true
+    "tsRequireTypeHints": true,
+    "applyToExtensions": [".ts", ".tsx", ".js", ".jsx"],
+    "lintCommand": "npm run lint",
+    "typecheckCommand": "npm run typecheck"
   }
 }

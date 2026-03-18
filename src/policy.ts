@@ -1,4 +1,4 @@
-import type { PolicyMode, ToolCall, ValidationResult } from "./types.js";
+import type { PolicyMode, ToolCall, ValidationResult, PreflightPolicyPack } from "./types.js";
 
 export function applyPolicyMode(results: ValidationResult[], mode: PolicyMode): ValidationResult[] {
   if (mode === "enforce") return results;
@@ -15,8 +15,13 @@ export function applyPolicyMode(results: ValidationResult[], mode: PolicyMode): 
   });
 }
 
-export function buildPatchedCall(call: ToolCall, results: ValidationResult[]): ToolCall | undefined {
-  const patch = results.find((r) => r.patch);
+export function buildPatchedCall(
+  call: ToolCall,
+  results: ValidationResult[],
+  policyPack?: PreflightPolicyPack
+): ToolCall | undefined {
+  const allowedRules = policyPack?.autoPatchAllowedRules ?? ["force-push-protection", "platform-path-sep", "onedrive-redirect"];
+  const patch = results.find((r) => r.patch && allowedRules.includes(r.rule));
   if (!patch || !patch.patch) return undefined;
   return {
     ...call,
