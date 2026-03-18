@@ -20,6 +20,10 @@
 - false positives:
 - false positive rate:
 - review method:
+- automation:
+  - run `npm run preflight:fp-label`
+  - review `.preflight/fp-review.csv` (`human_label` column)
+  - use `.preflight/fp-summary.json` as pre-review estimate only
 
 ## 4) Overhead Per Command
 - avg ms:

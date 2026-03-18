@@ -16,6 +16,16 @@ npm run openclaw:package
 Restart OpenClaw gateway, then run `openclaw hooks check`.
 For listing prep, follow `docs/openclaw-publish-checklist.md`.
 
+False-positive labeling (agent-assisted):
+
+```bash
+npm run preflight:fp-label
+```
+
+Outputs:
+- `.preflight/fp-review.csv` (fill `human_label` and `notes`)
+- `.preflight/fp-summary.json` (estimated FP rate before human adjudication)
+
 ```
 npm install agentpreflight
 ```
