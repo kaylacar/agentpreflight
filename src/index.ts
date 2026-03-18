@@ -93,7 +93,8 @@ async function resolvePolicyPack(options: PreflightOptions): Promise<PreflightPo
 export function createPreflight(options: PreflightOptions = {}): Preflight {
   const engine = new RuleEngine();
   const tracker = createInFlightTracker();
-  const telemetryPath = options.telemetryPath;
+  const telemetryPath = options.telemetryPath ?? ".preflight/telemetry.jsonl";
+  const telemetryRequired = options.telemetryRequired ?? true;
   const context: PreflightContext = {
     platform: options.platform ?? process.platform,
     cwd: options.cwd ?? process.cwd(),
@@ -162,11 +163,18 @@ export function createPreflight(options: PreflightOptions = {}): Preflight {
     try {
       const raw = await engine.validate(call, context);
       const transformed = applyPolicyMode(raw, context.policyMode);
-      writeTelemetry(
-        telemetryPath,
-        { ...call, params: { ...call.params, durationMs: Date.now() - started } },
-        transformed
-      );
+      try {
+        writeTelemetry(
+          telemetryPath,
+          { ...call, params: { ...call.params, durationMs: Date.now() - started } },
+          transformed
+        );
+      } catch (error) {
+        if (telemetryRequired) {
+          const message = error instanceof Error ? error.message : "Unknown telemetry write failure";
+          throw new Error(`Telemetry write failed: ${message}`);
+        }
+      }
       return transformed;
     } finally {
       tracker.unregister(call);

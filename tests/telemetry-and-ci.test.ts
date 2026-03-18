@@ -40,4 +40,25 @@ describe("telemetry and ci replay", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("writes telemetry by default when telemetryPath is not provided", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "preflight-default-telemetry-"));
+    const previous = process.cwd();
+    process.chdir(dir);
+    try {
+      const pf = createPreflight({ rules: ["release"] });
+      await pf.validate({
+        tool: "bash",
+        params: { command: "git status --short" },
+        source: "raw",
+      });
+      const telemetryPath = join(dir, ".preflight", "telemetry.jsonl");
+      const lines = readFileSync(telemetryPath, "utf8").trim().split("\n");
+      expect(lines.length).toBeGreaterThan(0);
+      expect(() => JSON.parse(lines[0])).not.toThrow();
+    } finally {
+      process.chdir(previous);
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

@@ -122,7 +122,9 @@ Policy mode and telemetry:
 ```ts
 const pf = createPreflight({
   policyMode: 'enforce', // enforce | audit-only | warn-only
+  // default telemetryPath is '.preflight/telemetry.jsonl' if omitted
   telemetryPath: '.preflight/telemetry.jsonl',
+  telemetryRequired: true, // default true (fail-closed if telemetry write fails)
 });
 ```
 
@@ -665,6 +667,7 @@ const pf = createPreflight({ rules: ['filesystem', noTodoFiles] });
 ### `createPreflight(options?)`
 
 Returns a `Preflight` instance.
+By default it writes telemetry to `.preflight/telemetry.jsonl`.
 
 ### `pf.validate(call)`
 
