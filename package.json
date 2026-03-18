@@ -22,6 +22,8 @@
     "verify:merge-gates": "node setup/verify-merge-gates.mjs",
     "typecheck": "tsc --noEmit",
     "setup:claude": "node setup/claude-hook.mjs",
+    "setup:openclaw": "node setup/openclaw-setup.mjs",
+    "openclaw:package": "node setup/package-openclaw-app.mjs",
     "preflight:ci": "node setup/replay-ci.mjs",
     "preflight:exec": "node setup/preflight-exec.mjs",
     "preflight:overnight": "node setup/preflight-overnight.mjs",

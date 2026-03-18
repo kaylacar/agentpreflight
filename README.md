@@ -5,6 +5,17 @@ Pre-flight validation for tool calls. Catches mistakes before they execute.
 Canonical repo:
 `https://github.com/kaylacar/agentpreflight`
 
+## OpenClaw Quickstart (5 minutes)
+
+```bash
+npm run build
+npm run setup:openclaw
+npm run openclaw:package
+```
+
+Restart OpenClaw gateway, then run `openclaw hooks check`.
+For listing prep, follow `docs/openclaw-publish-checklist.md`.
+
 ```
 npm install agentpreflight
 ```

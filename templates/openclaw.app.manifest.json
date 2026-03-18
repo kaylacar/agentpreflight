@@ -1,0 +1,23 @@
+{
+  "id": "agentpreflight-openclaw",
+  "name": "AgentPreflight",
+  "version": "0.1.0",
+  "description": "Mandatory pre-execution guardrails for OpenClaw command events.",
+  "author": "Kayla Cardillo / Tech Enrichment",
+  "homepage": "https://github.com/kaylacar/agentpreflight",
+  "license": "MIT",
+  "runtime": {
+    "node": ">=18"
+  },
+  "entry": {
+    "type": "hook",
+    "path": "openclaw-hooks/agentpreflight/handler.mjs",
+    "export": "default"
+  },
+  "events": [
+    "command"
+  ],
+  "telemetry": {
+    "path": ".preflight/telemetry.jsonl"
+  }
+}
