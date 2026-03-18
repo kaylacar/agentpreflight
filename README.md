@@ -129,6 +129,20 @@ const drift = estimateDrift('.preflight/time-estimates.jsonl');
 
 Install once. Validates every tool call Claude makes, across every project, permanently. Each blocked call saves ~800 tokens — the failed tool output, the error, and the retry.
 
+## Mandatory enforcement mode
+
+If you want agentpreflight to be real control-plane (not advisory), enforce one of these:
+
+1. Claude Code `PreToolUse` hook (global, automatic).
+2. Wrapper execution for shell commands via:
+
+```bash
+npm run build
+npm run preflight:exec -- --command "git push origin master"
+```
+
+This wrapper blocks execution on `fail` and only runs the command if preflight passes.
+
 ### Gstack-style quick install
 
 Open Claude Code and paste this:

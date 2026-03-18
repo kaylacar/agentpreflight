@@ -20,7 +20,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "setup:claude": "node setup/claude-hook.mjs",
-    "preflight:ci": "node setup/replay-ci.mjs"
+    "preflight:ci": "node setup/replay-ci.mjs",
+    "preflight:exec": "node setup/preflight-exec.mjs"
   },
   "keywords": [
     "validation",

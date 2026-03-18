@@ -11,6 +11,10 @@ Required behavior:
 - Report warnings and use safe `suggestion` values when status is `warn`.
 - Always report `Preflight: pass|warn|fail`, rule findings, and blocked/allowed decision.
 
+Enforcement requirement:
+- Do not execute direct `Bash/Write/Edit` actions until preflight has run for that call.
+- Treat preflight as mandatory gate, not advisory.
+
 ## What this is
 
 A general-purpose validation layer that sits between an AI's intent and execution. Intercepts tool calls, runs pre-flight checks, catches errors before they happen. Any AI coding tool can plug into it.
