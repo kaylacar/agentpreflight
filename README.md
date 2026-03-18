@@ -2,9 +2,34 @@
 
 Pre-flight validation for tool calls. Catches mistakes before they execute.
 
+Canonical repo:
+`https://github.com/kaylacar/agentpreflight`
+
 ```
 npm install agentpreflight
 ```
+
+---
+
+## For humans
+
+If you want a strict safety gate in under 1 minute:
+
+```bash
+npm run build
+npm run preflight:exec -- --command "git status --short"
+```
+
+If preflight returns a fail, command execution is blocked.
+
+Codex skill install from this repo (one canonical link source):
+
+```bash
+python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo kaylacar/agentpreflight --path skills/agentpreflight
+```
+
+Then restart Codex and use:
+`$agentpreflight ...`
 
 ---
 
