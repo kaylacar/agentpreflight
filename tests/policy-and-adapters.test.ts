@@ -41,6 +41,18 @@ describe("policy modes and adapters", () => {
     expect(call.source).toBe("codex");
   });
 
+  it("adapts openclaw schema variants", () => {
+    const call = adaptToolCall(
+      {
+        tool_name: "bash",
+        arguments: { cmd: "git status --short" },
+      },
+      "openclaw"
+    );
+    expect(call.tool).toBe("bash");
+    expect(call.params.command).toBe("git status --short");
+  });
+
   it("warn-only mode downgrades failures", async () => {
     const pf = createPreflight({ rules: ["release"], policyMode: "warn-only" });
     const results = await pf.validateWithPolicy({

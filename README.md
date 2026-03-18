@@ -67,7 +67,7 @@ Optimized for both humans and agents: machine-readable validation results for au
 - Block force pushes to main, secret commits, writes to nonexistent directories
 - Catch cross-agent file conflicts in parallel execution environments
 - Deterministic policy modes: `enforce`, `audit-only`, `warn-only` (default: `enforce`)
-- Version-compat adapters: `claude`, `cursor`, `codex`, and raw tool-call schema
+- Version-compat adapters: `claude`, `cursor`, `codex`, `openclaw`, and raw tool-call schema
 - Pre-write content gates (size/type-hint checks) and session checkpoints for destructive commands
 - Pre-write external toolchain gates (`lintCommand`, `typecheckCommand`) configurable per extension
 - Command rewrite support via `patch` for safe auto-fixes (e.g. `--force` -> `--force-with-lease`)
@@ -113,6 +113,21 @@ import { validateAdapted } from 'agentpreflight';
 const results = await validateAdapted(claudeHookPayload, 'claude', {
   policyMode: 'enforce',
 });
+```
+
+OpenClaw adapter usage:
+
+```ts
+const results = await validateAdapted(openclawPayload, 'openclaw', {
+  policyMode: 'enforce',
+});
+```
+
+OpenClaw hook (copy/paste):
+
+```bash
+npm run build
+node setup/openclaw-preflight-hook.mjs < your-openclaw-tool-call.json
 ```
 
 Command preflight with safe rewrite support:

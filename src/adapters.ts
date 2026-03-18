@@ -1,6 +1,6 @@
 import type { ToolCall } from "./types.js";
 
-export type InputSchema = "raw" | "claude" | "cursor" | "codex";
+export type InputSchema = "raw" | "claude" | "cursor" | "codex" | "openclaw";
 
 export function adaptToolCall(input: unknown, schema: InputSchema = "raw"): ToolCall {
   if (schema === "raw") {
@@ -41,6 +41,24 @@ export function adaptToolCall(input: unknown, schema: InputSchema = "raw"): Tool
         path: args.file_path ?? args.path,
       },
       source: "cursor",
+    };
+  }
+
+  if (schema === "openclaw") {
+    const tool = String(payload.tool || payload.tool_name || payload.name || "");
+    const args = (payload.arguments || payload.parameters || payload.params || payload.tool_input || {}) as Record<
+      string,
+      unknown
+    >;
+    return {
+      tool,
+      params: {
+        ...args,
+        command: args.command ?? args.cmd,
+        path: args.file_path ?? args.path,
+        content: args.file_text ?? args.content ?? args.new_string,
+      },
+      source: "raw",
     };
   }
 
