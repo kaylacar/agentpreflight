@@ -2,6 +2,15 @@
 
 Pre-flight validation SDK for AI tool calls.
 
+## agentpreflight trigger contract
+
+If the user says `agentpreflight` or `preflight`, run preflight validation before executing tool calls.
+
+Required behavior:
+- Block execution when any rule returns `fail`.
+- Report warnings and use safe `suggestion` values when status is `warn`.
+- Always report `Preflight: pass|warn|fail`, rule findings, and blocked/allowed decision.
+
 ## What this is
 
 A general-purpose validation layer that sits between an AI's intent and execution. Intercepts tool calls, runs pre-flight checks, catches errors before they happen. Any AI coding tool can plug into it.
@@ -31,4 +40,4 @@ A general-purpose validation layer that sits between an AI's intent and executio
 - Zero external dependencies for core engine (only node builtins)
 - Rules are pluggable — users can add custom rules
 - Tool names are case-insensitive in rule matching
-- npm package: @preflight/core
+- npm package: agentpreflight

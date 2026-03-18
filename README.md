@@ -1,6 +1,6 @@
 # agentpreflight
 
-Pre-flight validation for AI tool calls. Catches mistakes before they execute.
+Pre-flight validation for tool calls. Catches mistakes before they execute.
 
 ```
 npm install agentpreflight
@@ -31,10 +31,12 @@ if (hasFailures(results)) {
 
 ## For agents
 
+Optimized for both humans and agents: machine-readable validation results for automation, clear messages and suggestions for operator review.
+
 **Purpose:** Pre-flight validation SDK for AI agent tool calls. Prevents filesystem errors, git mistakes, secret leaks, and path resolution failures before execution.
 
 **Capabilities:**
-- Validate tool calls before execution (`filesystem`, `git`, `secrets`, `environment`, `naming`, `network`, `parallel`, `scope`)
+- Validate tool calls before execution (`filesystem`, `git`, `secrets`, `environment`, `naming`, `network`, `parallel`, `scope`, `release`)
 - Resolve local repo paths without asking the user (`getEnv`, `resolveRepo`)
 - Detect and correct platform path errors, OneDrive redirects, wrong separators
 - Block force pushes to main, secret commits, writes to nonexistent directories
@@ -70,13 +72,35 @@ if (hasFailures(results)) { /* abort */ }
 
 **Tool name matching:** case-insensitive. `write_file`, `Write`, `WRITE` all match.
 
-**Param resolution:** checks `path`, `file_path`, `file`, `command`, `cmd`, `content`, `new_string` — covers Claude Code, Cursor, Copilot, and other coding assistants.
+**Param resolution:** checks `path`, `file_path`, `file`, `command`, `cmd`, `content`, `new_string` for compatibility across common coding tools.
 
 ---
 
 ## Claude Code global hook
 
 Install once. Validates every tool call Claude makes, across every project, permanently. Each blocked call saves ~800 tokens — the failed tool output, the error, and the retry.
+
+### Gstack-style quick install
+
+Open Claude Code and paste this:
+
+```text
+Install agentpreflight globally for Claude: run `git clone https://github.com/kaylacar/agentpreflight.git ~/.claude/skills/agentpreflight && cd ~/.claude/skills/agentpreflight && pnpm install && npm run setup:claude` then restart Claude Code.
+Then update your project `CLAUDE.md` with an "agentpreflight" section that says: if the user says `agentpreflight` or `preflight`, run preflight validation before tool execution, block on fail, and report warnings with suggestions.
+```
+
+Add this to your project `CLAUDE.md`:
+
+```md
+## agentpreflight
+
+When the user says `agentpreflight` or `preflight`, validate planned tool calls with `agentpreflight` before execution.
+
+Rules:
+- If any result is `fail`, do not execute the tool call.
+- If results are only `warn`, show warnings and apply safe suggestions.
+- Always report: `Preflight: pass|warn|fail`, rule findings, and whether execution is blocked.
+```
 
 **1. Set up the hook directory**
 
@@ -350,7 +374,7 @@ Catches platform and path mismatches.
 
 Scans file content and shell commands for credentials.
 
-Detects: OpenAI keys, Anthropic keys, npm tokens, GitHub tokens, AWS keys, Stripe keys, Cloudflare tokens, private key blocks, generic `SECRET=` / `API_KEY=` patterns.
+Detects: common API keys and tokens (npm, GitHub, AWS, Stripe, Cloudflare), private key blocks, and generic `SECRET=` / `API_KEY=` patterns.
 
 | Rule | Triggers on | Result |
 |------|-------------|--------|
@@ -393,6 +417,18 @@ Catches tool calls that exceed what was asked.
 |------|-------------|--------|
 | `write-outside-cwd` | write to path outside working directory | warn |
 | `bash-dangerous-command` | `rm -rf`, `chmod 777`, `sudo`, etc. | warn or fail |
+
+### `release`
+
+Guards completion claims in assistant output payloads.
+
+| Rule | Triggers on | Result |
+|------|-------------|--------|
+| `release-claim-requires-evidence` | completion claims like "done/live/fixed" without evidence table | fail |
+
+Required evidence table shape:
+
+`| URL | Action | Expected | Actual | Pass/Fail |`
 
 ---
 
@@ -571,3 +607,4 @@ interface EnvManifest {
 ## License
 
 MIT — Kayla Cardillo / [Tech Enrichment](https://techenrichment.com)
+

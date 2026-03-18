@@ -1,7 +1,7 @@
 {
   "name": "agentpreflight",
   "version": "0.1.0",
-  "description": "Pre-flight validation for AI tool calls — catches mistakes before execution",
+  "description": "Pre-flight validation for tool calls that catches mistakes before execution",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -18,17 +18,14 @@
     "build": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "setup:claude": "node setup/claude-hook.mjs"
   },
   "keywords": [
-    "ai",
     "validation",
     "tool-calls",
-    "preflight",
-    "agent",
-    "coding-assistant"
+    "preflight"
   ],
-  "author": "Kayla Cardillo",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^25.3.3",
@@ -37,3 +34,4 @@
     "vitest": "^3.0.0"
   }
 }
+
