@@ -27,8 +27,15 @@ export { replayToolCallsFromFile } from "./ci.js";
 export { recordTimeEstimate, estimateDrift } from "./time-calibration.js";
 export { adaptToolCall, type InputSchema } from "./adapters.js";
 export { loadPolicyPack, loadPolicyPackSync, baselinePolicies, loadBaselinePolicyTemplate } from "./policy-pack.js";
-export { runOvernightPlan, persistRunState } from "./overnight.js";
+export {
+  runOvernightPlan,
+  persistRunState,
+  OVERNIGHT_STATE_VERSION,
+  resolveInitialOvernightState,
+} from "./overnight.js";
 export type { OvernightPlan, OvernightChunk, OvernightStep, OvernightRunState, CommandRunResult } from "./overnight.js";
+export { createPlatformExecutor, normalizeCommand } from "./command-executor.js";
+export type { NormalizedCommand } from "./command-executor.js";
 import type {
   Preflight,
   PreflightOptions,

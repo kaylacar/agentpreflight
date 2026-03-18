@@ -18,6 +18,8 @@
     "build": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:contracts": "node setup/verify-guardrails.mjs",
+    "verify:merge-gates": "node setup/verify-merge-gates.mjs",
     "typecheck": "tsc --noEmit",
     "setup:claude": "node setup/claude-hook.mjs",
     "preflight:ci": "node setup/replay-ci.mjs",

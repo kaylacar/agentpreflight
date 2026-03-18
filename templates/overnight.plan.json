@@ -1,0 +1,43 @@
+{
+  "name": "overnight-build",
+  "maxAttemptsPerChunk": 2,
+  "stopOnFailure": true,
+  "gates": [
+    "npm.cmd run build",
+    "npm.cmd test"
+  ],
+  "chunks": [
+    {
+      "id": "chunk-1",
+      "objective": "Verify baseline health",
+      "steps": [
+        {
+          "id": "typecheck",
+          "command": "npm.cmd run typecheck"
+        }
+      ],
+      "nextActions": [
+        "Review test failures and create a focused fix chunk",
+        "Only continue when all gate commands pass"
+      ]
+    },
+    {
+      "id": "chunk-2",
+      "objective": "Run a targeted implementation script",
+      "steps": [
+        {
+          "id": "implement",
+          "command": "echo Replace this with your actual implementation command"
+        }
+      ],
+      "gates": [
+        "npm.cmd run build",
+        "npm.cmd test"
+      ],
+      "nextActions": [
+        "Open latest state file and inspect blocker",
+        "Create a new chunk for the blocker root cause"
+      ]
+    }
+  ]
+}

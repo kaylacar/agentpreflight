@@ -156,6 +156,21 @@ npm run preflight:overnight -- --plan .preflight/overnight.plan.json
 
 This command fails closed. It validates every command before running, enforces gate commands per chunk, retries only up to max attempts, and writes resumable state to `.preflight/overnight.state.json` plus handoff notes to `.preflight/agent-log.md`.
 
+## Merge Gate Baseline
+
+Keep this repo as a guardrail baseline layer:
+
+```bash
+npm run verify:merge-gates
+```
+
+This enforces:
+- `typecheck`, `build`, and full test suite
+- `preflight:exec` contract behavior (allow safe command, block force-push to `main`)
+- policy template contract coverage
+
+Only merge additions mapped to a concrete failure mode ticket in `docs/failure-mode-template.md`.
+
 ### Gstack-style quick install
 
 Open Claude Code and paste this:
