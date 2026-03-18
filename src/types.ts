@@ -87,6 +87,7 @@ export interface PreflightOptions {
   policyPack?: PreflightPolicyPack;
   telemetryPath?: string;
   telemetryRequired?: boolean;
+  stackAutoDetect?: boolean;
 }
 
 export interface Preflight {

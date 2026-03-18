@@ -21,6 +21,7 @@ import { timeEstimationRules } from "./rules/time-estimation.js";
 import { applyPolicyMode, buildPatchedCall } from "./policy.js";
 import { adaptToolCall } from "./adapters.js";
 import { writeTelemetry } from "./telemetry.js";
+import { autoDetectedRuleSets } from "./stack-detection.js";
 export { formatResult, formatResults, hasFailures, hasWarnings, summary, explainBlock } from "./reporter.js";
 export { createInFlightTracker } from "./rules/parallel.js";
 export { replayToolCallsFromFile } from "./ci.js";
@@ -128,20 +129,9 @@ export function createPreflight(options: PreflightOptions = {}): Preflight {
     })
     .catch(() => {});
 
-  const defaultRuleSets: RuleSet[] = [
-    "filesystem",
-    "git",
-    "environment",
-    "naming",
-    "parallel",
-    "network",
-    "secrets",
-    "scope",
-    "release",
-    "prewrite",
-    "session",
-    "time-estimation",
-  ];
+  const defaultRuleSets: RuleSet[] = options.stackAutoDetect === false
+    ? ["filesystem", "git", "environment", "naming", "parallel", "network", "secrets", "scope", "release", "prewrite", "session", "time-estimation"]
+    : autoDetectedRuleSets(context.cwd);
 
   const policyEnabledRuleSets = context.policyPack?.enabledRuleSets;
   const configuredRuleSets =

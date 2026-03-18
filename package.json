@@ -28,6 +28,7 @@
     "preflight:exec": "node setup/preflight-exec.mjs",
     "preflight:overnight": "node setup/preflight-overnight.mjs",
     "preflight:report": "node setup/analyze-telemetry.mjs --file .preflight/telemetry.jsonl --output .preflight/metrics-report.md",
+    "preflight:incidents": "node setup/blocked-incidents-report.mjs --file .preflight/telemetry.jsonl --output .preflight/blocked-incidents.md",
     "preflight:fp-label": "node setup/label-false-positives.mjs --file .preflight/telemetry.jsonl --output-csv .preflight/fp-review.csv --output-json .preflight/fp-summary.json"
   },
   "keywords": [

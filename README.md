@@ -5,9 +5,50 @@ Pre-flight validation for tool calls. Catches mistakes before they execute.
 Canonical repo:
 `https://github.com/kaylacar/agentpreflight`
 
+## Quickstart For Humans
+
+```bash
+npm install agentpreflight
+npm run build
+npm run preflight:exec -- --command "git status --short"
+```
+
+If a preflight rule fails, command execution is blocked.
+
+Codex skill install from this repo:
+
+```bash
+python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo kaylacar/agentpreflight --path skills/agentpreflight
+```
+
+Then restart Codex and use:
+`$agentpreflight ...`
+
+## Quickstart For Agents
+
+```ts
+import { createPreflight, hasFailures } from 'agentpreflight';
+
+const pf = createPreflight();
+const results = await pf.validate({
+  tool: 'bash',
+  params: { command: 'git push --force origin main' },
+});
+
+if (hasFailures(results)) {
+  // block execution
+}
+```
+
+Default behavior:
+- telemetry writes to `.preflight/telemetry.jsonl`
+- `telemetryRequired` defaults to `true` (fail-closed if telemetry cannot be written)
+- stack auto-detection is on by default when `rules` are not explicitly set
+
 ## OpenClaw Quickstart (5 minutes)
 
 ```bash
+npm install
 npm run build
 npm run setup:openclaw
 npm run openclaw:package
@@ -26,33 +67,14 @@ Outputs:
 - `.preflight/fp-review.csv` (fill `human_label` and `notes`)
 - `.preflight/fp-summary.json` (estimated FP rate before human adjudication)
 
-```
-npm install agentpreflight
-```
-
----
-
-## For humans
-
-If you want a strict safety gate in under 1 minute:
+Blocked incidents report:
 
 ```bash
-npm run build
-npm run preflight:exec -- --command "git status --short"
+npm run preflight:incidents
 ```
 
-If preflight returns a fail, command execution is blocked.
-
-Codex skill install from this repo (one canonical link source):
-
-```bash
-python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo kaylacar/agentpreflight --path skills/agentpreflight
-```
-
-Then restart Codex and use:
-`$agentpreflight ...`
-
----
+Output:
+- `.preflight/blocked-incidents.md` (recent blocked events for proof/evidence)
 
 ## What it does
 
@@ -94,6 +116,7 @@ Optimized for both humans and agents: machine-readable validation results for au
 - Command rewrite support via `patch` for safe auto-fixes (e.g. `--force` -> `--force-with-lease`)
 - Auto-patch allowlist (`autoPatchAllowedRules`) to constrain what can be rewritten automatically
 - Structured telemetry JSONL output for pass/warn/fail and top failing rules
+- Stack auto-detection activates rule sets from project markers (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`)
 - CI replay support to validate planned tool-call lists and fail on policy violations
 - Baseline policy templates: `startup-safe`, `enterprise`, `speed`
 - Time-estimation guardrails with optional mandatory calibration context
