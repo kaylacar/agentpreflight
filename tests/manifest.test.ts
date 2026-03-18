@@ -137,7 +137,13 @@ describe('repo-path-resolution rule', () => {
   });
 
   it('passes when no manifest is provided', async () => {
-    const pf = createPreflight({ rules: ['environment'], platform: 'win32', homeDir: 'C:\\Users\\teche' });
+    const missingManifestPath = join(tmpdir(), `preflight-missing-${Date.now()}.json`);
+    const pf = createPreflight({
+      rules: ['environment'],
+      platform: 'win32',
+      homeDir: 'C:\\Users\\teche',
+      manifestPath: missingManifestPath,
+    });
     const call: ToolCall = {
       tool: 'read',
       params: { path: 'machinepolicy.org/index.html' },

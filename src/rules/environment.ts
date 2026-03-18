@@ -158,8 +158,7 @@ const devNullPlatform: Rule = {
     const cmd = getCommandParam(call)!;
 
     if (ctx.platform === 'win32' && cmd.includes('NUL') && !cmd.includes('/dev/null')) {
-      // Windows using NUL — fine for native cmd, but bash shell uses /dev/null
-      // The shell context matters, but since Claude Code uses bash on Windows, /dev/null works
+      // Windows using NUL is fine for native cmd, but bash shells use /dev/null.
     }
 
     if (ctx.platform !== 'win32' && cmd.includes('NUL')) {

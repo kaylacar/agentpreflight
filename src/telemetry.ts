@@ -18,6 +18,7 @@ export function writeTelemetry(path: string | undefined, call: ToolCall, results
     status: counts.fail > 0 ? "blocked" : counts.warn > 0 ? "warn" : "pass",
     counts,
     topRules,
+    durationMs: typeof call.params?.durationMs === "number" ? call.params.durationMs : undefined,
   };
   appendFileSync(path, `${JSON.stringify(row)}\n`, "utf8");
 }

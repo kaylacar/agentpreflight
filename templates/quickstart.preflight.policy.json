@@ -1,0 +1,22 @@
+{
+  "name": "quickstart",
+  "mode": "enforce",
+  "enabledRuleSets": [
+    "filesystem",
+    "git",
+    "secrets",
+    "scope"
+  ],
+  "destructiveRequireToken": true,
+  "autoPatchAllowedRules": [
+    "force-push-protection",
+    "platform-path-sep"
+  ],
+  "requireCalibrationOnEstimates": false,
+  "prewriteChecks": {
+    "enabled": true,
+    "maxBytes": 250000,
+    "tsRequireTypeHints": false,
+    "applyToExtensions": [".ts", ".tsx", ".js", ".jsx"]
+  }
+}

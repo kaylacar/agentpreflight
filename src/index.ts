@@ -157,11 +157,16 @@ export function createPreflight(options: PreflightOptions = {}): Preflight {
 
   async function runValidation(call: ToolCall): Promise<ValidationResult[]> {
     await Promise.all([manifestReady, policyReady]);
+    const started = Date.now();
     tracker.register(call);
     try {
       const raw = await engine.validate(call, context);
       const transformed = applyPolicyMode(raw, context.policyMode);
-      writeTelemetry(telemetryPath, call, transformed);
+      writeTelemetry(
+        telemetryPath,
+        { ...call, params: { ...call.params, durationMs: Date.now() - started } },
+        transformed
+      );
       return transformed;
     } finally {
       tracker.unregister(call);

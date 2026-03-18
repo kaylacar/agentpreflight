@@ -30,6 +30,10 @@ function getPathParam(call: ToolCall): string | null {
   return typeof p === 'string' ? p : null;
 }
 
+function normalizePathForCompare(p: string): string {
+  return p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
+
 const pathTraversal: Rule = {
   name: 'scope-path-traversal',
   matches(call) {
@@ -38,8 +42,10 @@ const pathTraversal: Rule = {
   async validate(call, context: PreflightContext): Promise<ValidationResult> {
     const raw = getPathParam(call)!;
     const absolute = resolve(context.cwd, raw);
+    const normalizedAbsolute = normalizePathForCompare(absolute);
+    const normalizedCwd = normalizePathForCompare(context.cwd);
 
-    if (!absolute.startsWith(context.cwd)) {
+    if (!(normalizedAbsolute === normalizedCwd || normalizedAbsolute.startsWith(`${normalizedCwd}/`))) {
       return {
         status: 'fail',
         rule: 'scope-path-traversal',
