@@ -20,6 +20,9 @@ export function formatResult(result: ValidationResult): string {
   if (result.suggestion) {
     line += `\n       -> ${result.suggestion}`;
   }
+  if (result.nextCommand) {
+    line += `\n       next: ${result.nextCommand}`;
+  }
   return line;
 }
 
@@ -52,4 +55,14 @@ export function summary(results: ValidationResult[]): {
     warn: results.filter((r) => r.status === 'warn').length,
     fail: results.filter((r) => r.status === 'fail').length,
   };
+}
+
+export function explainBlock(results: ValidationResult[]): string {
+  const failures = results.filter((r) => r.status === "fail");
+  if (failures.length === 0) return "No blocking rules.";
+  const lines = failures.map((r) => {
+    const next = r.nextCommand || r.suggestion || "Apply the recommended fix and retry.";
+    return `Blocked by ${r.rule}: ${r.message}\nNext command: ${next}`;
+  });
+  return lines.join("\n\n");
 }

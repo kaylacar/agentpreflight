@@ -51,6 +51,10 @@ const forcePushProtection: Rule = {
           ? 'Force push to main/master — this is destructive'
           : 'Force push detected — this rewrites remote history',
         suggestion: 'Use --force-with-lease for safer force push',
+        patch: {
+          command: cmd.replace(/--force\b|-f\b/g, '--force-with-lease'),
+        },
+        nextCommand: cmd.replace(/--force\b|-f\b/g, '--force-with-lease'),
       };
     }
 
@@ -89,6 +93,7 @@ const pushUpstreamCheck: Rule = {
           rule: 'push-upstream-check',
           message: `No upstream set for branch '${branch}'`,
           suggestion: `Use 'git push -u origin ${branch}' to set upstream`,
+          nextCommand: `git push -u origin ${branch}`,
         };
       }
 
@@ -100,6 +105,7 @@ const pushUpstreamCheck: Rule = {
           rule: 'push-upstream-check',
           message: `Branch '${branch}' has diverged from upstream`,
           suggestion: 'Pull and resolve before pushing, or use --force-with-lease',
+          nextCommand: 'git pull --rebase origin ' + branch,
         };
       }
 
@@ -109,6 +115,7 @@ const pushUpstreamCheck: Rule = {
           rule: 'push-upstream-check',
           message: `Branch '${branch}' is behind upstream`,
           suggestion: 'Pull first to avoid rejection',
+          nextCommand: 'git pull --rebase',
         };
       }
     } catch {
@@ -140,6 +147,7 @@ const stagingVerification: Rule = {
           rule: 'staging-verification',
           message: 'Nothing is staged for commit',
           suggestion: 'Use git add to stage files first',
+          nextCommand: 'git add <files>',
         };
       }
 

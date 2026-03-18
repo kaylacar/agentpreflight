@@ -1,0 +1,21 @@
+{
+  "name": "startup-safe",
+  "mode": "enforce",
+  "enabledRuleSets": [
+    "filesystem",
+    "git",
+    "secrets",
+    "environment",
+    "scope",
+    "release",
+    "session",
+    "prewrite",
+    "time-estimation"
+  ],
+  "destructiveRequireToken": true,
+  "prewriteChecks": {
+    "enabled": true,
+    "maxBytes": 350000,
+    "tsRequireTypeHints": false
+  }
+}

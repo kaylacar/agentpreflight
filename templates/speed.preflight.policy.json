@@ -1,0 +1,16 @@
+{
+  "name": "speed",
+  "mode": "warn-only",
+  "enabledRuleSets": [
+    "filesystem",
+    "git",
+    "secrets",
+    "scope",
+    "release",
+    "time-estimation"
+  ],
+  "destructiveRequireToken": false,
+  "prewriteChecks": {
+    "enabled": false
+  }
+}

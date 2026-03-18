@@ -41,6 +41,13 @@ Optimized for both humans and agents: machine-readable validation results for au
 - Detect and correct platform path errors, OneDrive redirects, wrong separators
 - Block force pushes to main, secret commits, writes to nonexistent directories
 - Catch cross-agent file conflicts in parallel execution environments
+- Deterministic policy modes: `enforce`, `audit-only`, `warn-only` (default: `enforce`)
+- Version-compat adapters: `claude`, `cursor`, `codex`, and raw tool-call schema
+- Pre-write content gates (size/type-hint checks) and session checkpoints for destructive commands
+- Command rewrite support via `patch` for safe auto-fixes (e.g. `--force` -> `--force-with-lease`)
+- Structured telemetry JSONL output for pass/warn/fail and top failing rules
+- CI replay support to validate planned tool-call lists and fail on policy violations
+- Baseline policy templates: `startup-safe`, `enterprise`, `speed`
 
 **Integration pattern:**
 
@@ -59,6 +66,48 @@ const results = await pf.validate({ tool: 'write', params: { path: '...' } });
 // Step 3 — act on results
 if (hasFailures(results)) { /* abort */ }
 // result.suggestion contains corrected value when status === 'warn'
+```
+
+Policy mode and telemetry:
+
+```ts
+const pf = createPreflight({
+  policyMode: 'enforce', // enforce | audit-only | warn-only
+  telemetryPath: '.preflight/telemetry.jsonl',
+});
+```
+
+Compatibility adapter usage:
+
+```ts
+import { validateAdapted } from 'agentpreflight';
+
+const results = await validateAdapted(claudeHookPayload, 'claude', {
+  policyMode: 'enforce',
+});
+```
+
+Command preflight with safe rewrite support:
+
+```ts
+const { results, blocked, patchedCall } = await pf.preflightCommand({
+  tool: 'bash',
+  params: { command: 'git push --force origin feature-x' },
+});
+```
+
+Time estimation calibration helpers:
+
+```ts
+import { recordTimeEstimate, estimateDrift } from 'agentpreflight';
+
+recordTimeEstimate('.preflight/time-estimates.jsonl', {
+  taskId: 'phase-2-search',
+  bestCaseMinutes: 90,
+  p90Minutes: 180,
+  actualMinutes: 140,
+});
+const drift = estimateDrift('.preflight/time-estimates.jsonl');
 ```
 
 **Result schema:**
@@ -251,6 +300,18 @@ yarn add agentpreflight
 ```
 
 Requires Node 18+. ESM only. Zero runtime dependencies.
+
+Policy pack templates:
+
+- `templates/startup-safe.preflight.policy.json`
+- `templates/enterprise.preflight.policy.json`
+- `templates/speed.preflight.policy.json`
+
+CI replay mode:
+
+```bash
+npm run preflight:ci -- ./tool-calls.json
+```
 
 ---
 

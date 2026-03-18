@@ -1,109 +1,102 @@
 /**
  * Core type definitions for Preflight.
- *
- * These interfaces define the contract between tool calls (from any AI coding tool),
- * validation rules, and the results they produce. Everything flows through these types.
  */
 
-/**
- * Represents a single tool call from an AI coding assistant.
- * Tool names vary by assistant (e.g., "write_file" vs "Write", "bash" vs "Bash")
- * so rule matching is case-insensitive.
- */
 export interface ToolCall {
   tool: string;
   params: Record<string, unknown>;
-  /** ID of the agent making this call — used for parallel conflict detection */
   agentId?: string;
+  source?: "raw" | "claude" | "cursor" | "codex";
 }
 
-/**
- * The outcome of running a single validation rule against a tool call.
- * - pass: tool call is safe to proceed
- * - warn: tool call has a potential issue but can proceed with caution
- * - fail: tool call should not proceed — something is wrong
- */
 export interface ValidationResult {
-  status: 'pass' | 'warn' | 'fail';
+  status: "pass" | "warn" | "fail";
   rule: string;
   message: string;
-  /** Actionable fix — e.g., corrected path, safer command */
   suggestion?: string;
+  patch?: {
+    command?: string;
+    params?: Record<string, unknown>;
+  };
+  nextCommand?: string;
 }
 
-/**
- * A validation rule. Rules are the core unit of Preflight.
- * Each rule has a matcher (does this rule apply to this tool call?)
- * and a validator (what's the verdict?).
- */
 export interface Rule {
   name: string;
-  /** Return true if this rule should run for the given tool call */
   matches: (call: ToolCall) => boolean;
-  /** Run the validation check. Always async because some rules need filesystem/git access */
   validate: (call: ToolCall, context: PreflightContext) => Promise<ValidationResult>;
 }
 
-/**
- * Runtime context passed to every rule during validation.
- * Contains platform info, paths, and an injectable exec function
- * so rules can be tested without hitting real shell commands.
- */
+export type PolicyMode = "enforce" | "audit-only" | "warn-only";
+
+export type RuleSet =
+  | "filesystem"
+  | "git"
+  | "naming"
+  | "environment"
+  | "parallel"
+  | "network"
+  | "secrets"
+  | "scope"
+  | "release"
+  | "prewrite"
+  | "session"
+  | "time-estimation";
+
+export interface PreflightPolicyPack {
+  name?: string;
+  mode?: PolicyMode;
+  enabledRuleSets?: RuleSet[];
+  blockedCommands?: string[];
+  destructiveRequireToken?: boolean;
+  prewriteChecks?: {
+    enabled?: boolean;
+    maxBytes?: number;
+    tsRequireTypeHints?: boolean;
+  };
+}
+
 export interface PreflightContext {
   platform: NodeJS.Platform;
   cwd: string;
   homeDir: string;
-  /** Execute a shell command — injectable for testing */
   exec: (cmd: string, args: string[], cwd?: string) => Promise<string>;
-  /** Tracks concurrent tool calls across parallel agents for conflict detection */
   inFlight: InFlightTracker;
-  /** Local environment manifest — repo names → absolute paths, named paths */
-  manifest?: import('./manifest.js').EnvManifest;
+  manifest?: import("./manifest.js").EnvManifest;
+  policyMode: PolicyMode;
+  sessionToken?: string;
+  policyPack?: PreflightPolicyPack;
 }
 
-/**
- * Options for createPreflight().
- * All optional — sensible defaults are used when omitted.
- */
 export interface PreflightOptions {
-  /** Which rule sets to load. Strings load built-in sets, Rule objects add custom rules */
   rules?: Array<string | Rule>;
   platform?: NodeJS.Platform;
   cwd?: string;
   homeDir?: string;
-  /** Override the default shell exec — primarily useful for testing */
   exec?: (cmd: string, args: string[], cwd?: string) => Promise<string>;
-  /** Path to the local environment manifest (~/.preflight-env.json by default) */
   manifestPath?: string;
-  /** Inline manifest — skips file loading, useful for testing */
-  manifest?: import('./manifest.js').EnvManifest;
+  manifest?: import("./manifest.js").EnvManifest;
+  policyMode?: PolicyMode;
+  sessionToken?: string;
+  policyPackPath?: string;
+  policyPack?: PreflightPolicyPack;
+  telemetryPath?: string;
 }
 
-/**
- * The public API returned by createPreflight().
- */
 export interface Preflight {
-  /** Validate a tool call against all loaded rules. Returns one result per matching rule. */
   validate: (call: ToolCall) => Promise<ValidationResult[]>;
-  /** Add a custom rule at runtime */
+  validateWithPolicy: (call: ToolCall) => Promise<ValidationResult[]>;
+  preflightCommand: (call: ToolCall) => Promise<{
+    results: ValidationResult[];
+    blocked: boolean;
+    patchedCall?: ToolCall;
+  }>;
   addRule: (rule: Rule) => void;
 }
 
-/** Built-in rule set names */
-export type RuleSet = 'filesystem' | 'git' | 'naming' | 'environment' | 'parallel' | 'network' | 'secrets' | 'scope';
-
-/**
- * Tracks in-flight tool calls for parallel agent conflict detection.
- * When multiple agents run simultaneously, they can clobber each other's writes
- * or create git race conditions. The tracker catches this.
- */
 export interface InFlightTracker {
-  /** Mark a tool call as currently executing */
   register: (call: ToolCall) => void;
-  /** Mark a tool call as finished */
   unregister: (call: ToolCall) => void;
-  /** Find other in-flight calls that target the same resource */
   getConflicts: (call: ToolCall) => ToolCall[];
-  /** List all currently in-flight calls */
   getAll: () => ToolCall[];
 }

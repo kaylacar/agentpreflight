@@ -1,0 +1,24 @@
+{
+  "name": "enterprise",
+  "mode": "enforce",
+  "enabledRuleSets": [
+    "filesystem",
+    "git",
+    "naming",
+    "environment",
+    "parallel",
+    "network",
+    "secrets",
+    "scope",
+    "release",
+    "session",
+    "prewrite",
+    "time-estimation"
+  ],
+  "destructiveRequireToken": true,
+  "prewriteChecks": {
+    "enabled": true,
+    "maxBytes": 250000,
+    "tsRequireTypeHints": true
+  }
+}

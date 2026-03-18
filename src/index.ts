@@ -1,31 +1,32 @@
-/**
- * Preflight — pre-flight validation for AI tool calls.
- *
- * This is the main entry point. createPreflight() builds a validator
- * with the specified rule sets, then validate() checks individual
- * tool calls before they execute.
- *
- * Usage:
- *   const pf = createPreflight({ rules: ['filesystem', 'git'] });
- *   const results = await pf.validate({ tool: 'write_file', params: { path: '...' } });
- *   if (hasFailures(results)) { // don't execute }
- */
-
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { homedir } from 'node:os';
-import { RuleEngine } from './engine.js';
-import { loadManifest } from './manifest.js';
-export { loadManifest, resolveRepo, resolvePath, getEnv } from './manifest.js';
-export type { EnvManifest } from './manifest.js';
-import { environmentRules } from './rules/environment.js';
-import { filesystemRules } from './rules/filesystem.js';
-import { gitRules } from './rules/git.js';
-import { namingRules } from './rules/naming.js';
-import { parallelRules, createInFlightTracker } from './rules/parallel.js';
-import { networkRules } from './rules/network.js';
-import { secretsRules } from './rules/secrets.js';
-import { scopeRules } from './rules/scope.js';
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { homedir } from "node:os";
+import { RuleEngine } from "./engine.js";
+import { loadManifest } from "./manifest.js";
+import { loadPolicyPack, loadPolicyPackSync, baselinePolicies, loadBaselinePolicyTemplate } from "./policy-pack.js";
+export { loadManifest, resolveRepo, resolvePath, getEnv } from "./manifest.js";
+export type { EnvManifest } from "./manifest.js";
+import { environmentRules } from "./rules/environment.js";
+import { filesystemRules } from "./rules/filesystem.js";
+import { gitRules } from "./rules/git.js";
+import { namingRules } from "./rules/naming.js";
+import { parallelRules, createInFlightTracker } from "./rules/parallel.js";
+import { networkRules } from "./rules/network.js";
+import { secretsRules } from "./rules/secrets.js";
+import { scopeRules } from "./rules/scope.js";
+import { releaseRules } from "./rules/release.js";
+import { prewriteRules } from "./rules/prewrite.js";
+import { sessionRules } from "./rules/session.js";
+import { timeEstimationRules } from "./rules/time-estimation.js";
+import { applyPolicyMode, buildPatchedCall } from "./policy.js";
+import { adaptToolCall } from "./adapters.js";
+import { writeTelemetry } from "./telemetry.js";
+export { formatResult, formatResults, hasFailures, hasWarnings, summary, explainBlock } from "./reporter.js";
+export { createInFlightTracker } from "./rules/parallel.js";
+export { replayToolCallsFromFile } from "./ci.js";
+export { recordTimeEstimate, estimateDrift } from "./time-calibration.js";
+export { adaptToolCall, type InputSchema } from "./adapters.js";
+export { loadPolicyPack, loadPolicyPackSync, baselinePolicies, loadBaselinePolicyTemplate } from "./policy-pack.js";
 import type {
   Preflight,
   PreflightOptions,
@@ -35,22 +36,30 @@ import type {
   Rule,
   RuleSet,
   InFlightTracker,
-} from './types.js';
+  PolicyMode,
+  PreflightPolicyPack,
+} from "./types.js";
 
-// Re-export everything consumers need
-export type { ToolCall, ValidationResult, Rule, Preflight, PreflightOptions, PreflightContext, RuleSet, InFlightTracker };
-export { formatResult, formatResults, hasFailures, hasWarnings, summary } from './reporter.js';
-export { createInFlightTracker } from './rules/parallel.js';
+export type {
+  ToolCall,
+  ValidationResult,
+  Rule,
+  Preflight,
+  PreflightOptions,
+  PreflightContext,
+  RuleSet,
+  InFlightTracker,
+  PolicyMode,
+  PreflightPolicyPack,
+};
 
 const execFileAsync = promisify(execFile);
 
-/** Default exec uses node:child_process. Rules call this to run git commands etc. */
 async function defaultExec(cmd: string, args: string[], cwd?: string): Promise<string> {
   const { stdout } = await execFileAsync(cmd, args, { cwd });
   return stdout.trim();
 }
 
-/** Map of built-in rule set names to their rule arrays */
 const RULE_SETS: Record<RuleSet, Rule[]> = {
   filesystem: filesystemRules,
   git: gitRules,
@@ -60,69 +69,121 @@ const RULE_SETS: Record<RuleSet, Rule[]> = {
   network: networkRules,
   secrets: secretsRules,
   scope: scopeRules,
+  release: releaseRules,
+  prewrite: prewriteRules,
+  session: sessionRules,
+  "time-estimation": timeEstimationRules,
 };
 
-/**
- * Create a Preflight validator.
- *
- * Options:
- * - rules: which rule sets to load (default: all). Can mix strings and custom Rule objects.
- * - platform: override process.platform (useful for testing cross-platform rules)
- * - cwd: override process.cwd()
- * - homeDir: override os.homedir()
- * - exec: override shell command execution (useful for mocking git in tests)
- * - manifestPath: path to ~/.preflight-env.json (default). Loads repo/path map for resolution.
- * - manifest: inline manifest object — skips file loading, useful for testing
- */
+async function resolvePolicyPack(options: PreflightOptions): Promise<PreflightPolicyPack | undefined> {
+  if (options.policyPack) return options.policyPack;
+  if (options.policyPackPath) return loadPolicyPack(options.policyPackPath);
+  return undefined;
+}
+
 export function createPreflight(options: PreflightOptions = {}): Preflight {
   const engine = new RuleEngine();
   const tracker = createInFlightTracker();
-
-  // Build the context that gets passed to every rule
+  const telemetryPath = options.telemetryPath;
   const context: PreflightContext = {
     platform: options.platform ?? process.platform,
     cwd: options.cwd ?? process.cwd(),
     homeDir: options.homeDir ?? homedir(),
     exec: options.exec ?? defaultExec,
     inFlight: tracker,
-    manifest: options.manifest, // inline manifest takes priority
+    manifest: options.manifest,
+    policyMode: options.policyMode ?? "enforce",
+    sessionToken: options.sessionToken,
+    policyPack: options.policyPack,
   };
-
-  // Load manifest from disk if not provided inline, then update context
-  if (!context.manifest) {
-    loadManifest(options.manifestPath).then((m) => {
-      if (m) context.manifest = m;
-    }).catch(() => {
-      // Manifest load failure is non-fatal — just skip resolution
-    });
+  const syncPolicyPack = options.policyPack ?? loadPolicyPackSync(options.policyPackPath);
+  if (syncPolicyPack) {
+    context.policyPack = syncPolicyPack;
+    context.policyMode = syncPolicyPack.mode ?? context.policyMode;
   }
 
-  // Load rule sets — strings load built-in sets, objects are custom rules
-  const ruleSets = options.rules ?? ['filesystem', 'git', 'environment', 'naming', 'parallel', 'network', 'secrets', 'scope'];
-  for (const rule of ruleSets) {
-    if (typeof rule === 'string') {
+  const manifestReady: Promise<void> = context.manifest
+    ? Promise.resolve()
+    : loadManifest(options.manifestPath)
+        .then((m) => {
+          if (m) context.manifest = m;
+        })
+        .catch(() => {});
+
+  const policyReady: Promise<void> = resolvePolicyPack(options)
+    .then((p) => {
+      if (!p) return;
+      context.policyPack = p;
+      context.policyMode = p.mode ?? context.policyMode;
+    })
+    .catch(() => {});
+
+  const defaultRuleSets: RuleSet[] = [
+    "filesystem",
+    "git",
+    "environment",
+    "naming",
+    "parallel",
+    "network",
+    "secrets",
+    "scope",
+    "release",
+    "prewrite",
+    "session",
+    "time-estimation",
+  ];
+
+  const policyEnabledRuleSets = context.policyPack?.enabledRuleSets;
+  const configuredRuleSets =
+    (options.rules as Array<string | Rule> | undefined) ??
+    (policyEnabledRuleSets && policyEnabledRuleSets.length > 0 ? policyEnabledRuleSets : defaultRuleSets);
+  for (const rule of configuredRuleSets) {
+    if (typeof rule === "string") {
       const builtIn = RULE_SETS[rule as RuleSet];
-      if (builtIn) {
-        engine.addRules(builtIn);
-      }
+      if (builtIn) engine.addRules(builtIn);
     } else {
       engine.addRule(rule);
     }
   }
 
+  async function runValidation(call: ToolCall): Promise<ValidationResult[]> {
+    await Promise.all([manifestReady, policyReady]);
+    tracker.register(call);
+    try {
+      const raw = await engine.validate(call, context);
+      const transformed = applyPolicyMode(raw, context.policyMode);
+      writeTelemetry(telemetryPath, call, transformed);
+      return transformed;
+    } finally {
+      tracker.unregister(call);
+    }
+  }
+
   return {
     async validate(call: ToolCall): Promise<ValidationResult[]> {
-      // Register in the tracker so parallel rules can see concurrent calls
-      tracker.register(call);
-      try {
-        return await engine.validate(call, context);
-      } finally {
-        // Always unregister, even if validation throws
-        tracker.unregister(call);
-      }
+      return runValidation(call);
+    },
+    async validateWithPolicy(call: ToolCall): Promise<ValidationResult[]> {
+      return runValidation(call);
+    },
+    async preflightCommand(call: ToolCall): Promise<{ results: ValidationResult[]; blocked: boolean; patchedCall?: ToolCall }> {
+      const results = await runValidation(call);
+      const blocked = results.some((r) => r.status === "fail");
+      const patchedCall = !blocked ? buildPatchedCall(call, results) : undefined;
+      return { results, blocked, patchedCall };
     },
     addRule(rule: Rule) {
       engine.addRule(rule);
     },
   };
+}
+
+export async function validateAdapted(
+  input: unknown,
+  schema: "raw" | "claude" | "cursor" | "codex",
+  options: PreflightOptions = {}
+): Promise<ValidationResult[]> {
+  const pf = createPreflight(options);
+  const call = adaptToolCall(input, schema);
+  return pf.validateWithPolicy(call);
 }
