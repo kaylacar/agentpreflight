@@ -9,8 +9,8 @@ export interface NormalizedCommand {
 export function normalizeCommand(platform: NodeJS.Platform, command: string): NormalizedCommand {
   if (platform === "win32") {
     return {
-      file: "powershell.exe",
-      args: ["-NoProfile", "-NonInteractive", "-Command", command],
+      file: "cmd.exe",
+      args: ["/d", "/s", "/c", command],
     };
   }
   return {

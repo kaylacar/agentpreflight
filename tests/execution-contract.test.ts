@@ -41,8 +41,8 @@ describe("execution contract", () => {
 
   it("normalizes commands per platform deterministically", () => {
     const win = normalizeCommand("win32", "echo ok");
-    expect(win.file).toBe("powershell.exe");
-    expect(win.args).toEqual(["-NoProfile", "-NonInteractive", "-Command", "echo ok"]);
+    expect(win.file).toBe("cmd.exe");
+    expect(win.args).toEqual(["/d", "/s", "/c", "echo ok"]);
 
     const unix = normalizeCommand("linux", "echo ok");
     expect(unix.file).toBe("sh");

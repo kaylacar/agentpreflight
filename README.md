@@ -15,6 +15,12 @@ npm run preflight:exec -- --command "git status --short"
 
 If a preflight rule fails, command execution is blocked.
 
+Reliable wrapper usage (recommended on Windows for quoting/cwd stability):
+
+```bash
+npm run preflight:exec -- --cwd "C:\path\to\repo" --arg npm.cmd --arg run --arg verify
+```
+
 Codex skill install from this repo:
 
 ```bash
@@ -40,7 +46,7 @@ if (hasFailures(results)) {
 }
 ```
 
-Default behavior:
+Defaults:
 - telemetry writes to `.preflight/telemetry.jsonl`
 - `telemetryRequired` defaults to `true` (fail-closed if telemetry cannot be written)
 - stack auto-detection is on by default when `rules` are not explicitly set
@@ -57,7 +63,9 @@ npm run openclaw:package
 Restart OpenClaw gateway, then run `openclaw hooks check`.
 For listing prep, follow `docs/openclaw-publish-checklist.md`.
 
-False-positive labeling (agent-assisted):
+## Evidence Outputs
+
+False-positive labeling:
 
 ```bash
 npm run preflight:fp-label
@@ -75,6 +83,15 @@ npm run preflight:incidents
 
 Output:
 - `.preflight/blocked-incidents.md` (recent blocked events for proof/evidence)
+
+Metrics report:
+
+```bash
+npm run preflight:report
+```
+
+Output:
+- `.preflight/metrics-report.md`
 
 ## What it does
 
