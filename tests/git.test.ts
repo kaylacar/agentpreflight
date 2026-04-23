@@ -198,6 +198,23 @@ describe('git rules', () => {
       expect(rule).toBeDefined();
       expect(rule!.status).toBe('pass');
     });
+
+    it('allows amend-only commits when nothing is staged', async () => {
+      const exec = async (cmd: string, args: string[]): Promise<string> => {
+        if (args.includes('--cached')) return '';
+        return '';
+      };
+      const pf = makePreflight(exec);
+      const call: ToolCall = {
+        tool: 'bash',
+        params: { command: 'git commit --amend -m "fix message"' },
+      };
+      const results = await pf.validate(call);
+      const rule = results.find((r) => r.rule === 'staging-verification');
+      expect(rule).toBeDefined();
+      expect(rule!.status).toBe('pass');
+      expect(rule!.message).toContain('Amend commit allowed');
+    });
   });
 
   describe('branch-protection', () => {

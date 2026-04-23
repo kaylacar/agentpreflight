@@ -35,5 +35,20 @@ describe('release-claim-requires-evidence', () => {
     });
     expect(results.length).toBe(0);
   });
+
+  it('can disable response/output gates explicitly in policy', async () => {
+    const gated = createPreflight({
+      rules: ['release'],
+      policyPack: {
+        enabledRuleSets: ['release'],
+        responseChecks: { enabled: false },
+      },
+    });
+    const results = await gated.validate({
+      tool: 'final_response',
+      params: { text: 'It is done and live now.' },
+    });
+    expect(results.find((r) => r.rule === 'release-claim-requires-evidence')?.status).toBe('pass');
+  });
 });
 

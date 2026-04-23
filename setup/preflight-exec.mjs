@@ -2,7 +2,9 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function usage() {
   process.stderr.write(
@@ -37,10 +39,14 @@ export function normalizeShellCommand(platform, command) {
   return { file: "sh", args: ["-lc", command] };
 }
 
+export function resolveSdkDistPath() {
+  return path.resolve(__dirname, "..", "dist", "index.js");
+}
+
 async function loadSdk() {
-  const dist = path.resolve(process.cwd(), "dist", "index.js");
+  const dist = resolveSdkDistPath();
   if (!existsSync(dist)) {
-    process.stderr.write("dist/index.js missing. Run: npm run build\n");
+    process.stderr.write(`dist/index.js missing: ${dist}\n`);
     process.exit(2);
   }
   return import(pathToFileURL(dist).href);

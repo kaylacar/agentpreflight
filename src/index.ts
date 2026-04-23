@@ -3,9 +3,25 @@ import { promisify } from "node:util";
 import { homedir } from "node:os";
 import { RuleEngine } from "./engine.js";
 import { loadManifest } from "./manifest.js";
+import { loadProjectState } from "./project-state.js";
 import { loadPolicyPack, loadPolicyPackSync, baselinePolicies, loadBaselinePolicyTemplate } from "./policy-pack.js";
 export { loadManifest, resolveRepo, resolvePath, getEnv } from "./manifest.js";
 export type { EnvManifest } from "./manifest.js";
+export { loadProjectState, getProjectState, resolveProjectStatePath, DEFAULT_PROJECT_STATE_FILE } from "./project-state.js";
+export {
+  loadEditorialState,
+  loadEditorialStateHistory,
+  updateEditorialState,
+  mergeEditorialState,
+  parseEditorialState,
+  resolveEditorialStatePath,
+  resolveEditorialHistoryPath,
+  isEditorialState,
+  DEFAULT_EDITORIAL_STATE_FILE,
+} from "./editorial-state.js";
+export { parseMarkdownEditorialState, resolveEditorialImportPath, importEditorialState } from "./editorial-import.js";
+export { runDoctor, type DoctorOptions } from "./doctor.js";
+export type { ProjectState } from "./types.js";
 import { environmentRules } from "./rules/environment.js";
 import { filesystemRules } from "./rules/filesystem.js";
 import { gitRules } from "./rules/git.js";
@@ -15,6 +31,7 @@ import { networkRules } from "./rules/network.js";
 import { secretsRules } from "./rules/secrets.js";
 import { scopeRules } from "./rules/scope.js";
 import { releaseRules } from "./rules/release.js";
+import { editorialRules } from "./rules/editorial.js";
 import { prewriteRules } from "./rules/prewrite.js";
 import { sessionRules } from "./rules/session.js";
 import { timeEstimationRules } from "./rules/time-estimation.js";
@@ -38,6 +55,14 @@ export type { OvernightPlan, OvernightChunk, OvernightStep, OvernightRunState, C
 export { createPlatformExecutor, normalizeCommand } from "./command-executor.js";
 export type { NormalizedCommand } from "./command-executor.js";
 import type {
+  DoctorCheck,
+  DoctorReport,
+  EditorialEntry,
+  EditorialImportResult,
+  EditorialImportSource,
+  EditorialState,
+  EditorialStateHistoryEntry,
+  EditorialStateUpdate,
   Preflight,
   PreflightOptions,
   PreflightContext,
@@ -51,6 +76,14 @@ import type {
 } from "./types.js";
 
 export type {
+  DoctorCheck,
+  DoctorReport,
+  EditorialEntry,
+  EditorialImportResult,
+  EditorialImportSource,
+  EditorialState,
+  EditorialStateHistoryEntry,
+  EditorialStateUpdate,
   ToolCall,
   ValidationResult,
   Rule,
@@ -80,6 +113,7 @@ const RULE_SETS: Record<RuleSet, Rule[]> = {
   secrets: secretsRules,
   scope: scopeRules,
   release: releaseRules,
+  editorial: editorialRules,
   prewrite: prewriteRules,
   session: sessionRules,
   "time-estimation": timeEstimationRules,
@@ -103,6 +137,7 @@ export function createPreflight(options: PreflightOptions = {}): Preflight {
     exec: options.exec ?? defaultExec,
     inFlight: tracker,
     manifest: options.manifest,
+    projectState: options.projectState,
     policyMode: options.policyMode ?? "enforce",
     sessionToken: options.sessionToken,
     policyPack: options.policyPack,
@@ -129,6 +164,21 @@ export function createPreflight(options: PreflightOptions = {}): Preflight {
     })
     .catch(() => {});
 
+  const projectStateReady: Promise<void> = context.projectState
+    ? Promise.resolve()
+    : policyReady
+        .then(async () => {
+          const stateFile = options.projectStatePath ?? context.policyPack?.projectState?.stateFile;
+          try {
+            const state = await loadProjectState(stateFile, context.cwd);
+            if (state) context.projectState = state;
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Unknown project state load failure";
+            context.projectStateError = message;
+          }
+        })
+        .catch(() => {});
+
   const defaultRuleSets: RuleSet[] = options.stackAutoDetect === false
     ? ["filesystem", "git", "environment", "naming", "parallel", "network", "secrets", "scope", "release", "prewrite", "session", "time-estimation"]
     : autoDetectedRuleSets(context.cwd);
@@ -147,7 +197,7 @@ export function createPreflight(options: PreflightOptions = {}): Preflight {
   }
 
   async function runValidation(call: ToolCall): Promise<ValidationResult[]> {
-    await Promise.all([manifestReady, policyReady]);
+    await Promise.all([manifestReady, policyReady, projectStateReady]);
     const started = Date.now();
     tracker.register(call);
     try {
@@ -192,7 +242,7 @@ export function createPreflight(options: PreflightOptions = {}): Preflight {
 
 export async function validateAdapted(
   input: unknown,
-  schema: "raw" | "claude" | "cursor" | "codex",
+  schema: "raw" | "claude" | "cursor" | "codex" | "openclaw",
   options: PreflightOptions = {}
 ): Promise<ValidationResult[]> {
   const pf = createPreflight(options);

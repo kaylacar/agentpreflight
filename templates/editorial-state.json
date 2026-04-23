@@ -1,0 +1,24 @@
+{
+  "artifact": "homepage_copy",
+  "locked": [
+    "control",
+    ["visible", "public"],
+    ["hidden", "private"],
+    "inbound"
+  ],
+  "banned": [
+    "modular",
+    "ecosystem",
+    "How It Works",
+    "What Breaks",
+    "Why It Matters"
+  ],
+  "requiredConcepts": [
+    "representation",
+    "access",
+    "follow-through"
+  ],
+  "open": [
+    "final CTA wording"
+  ]
+}

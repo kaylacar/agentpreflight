@@ -26,6 +26,15 @@ Use when the user says:
 4. If only warnings exist, show warnings and apply `suggestion` values when safe.
 5. Proceed only after reporting the preflight result.
 
+## Codex tracking
+
+When the user asks for Codex tracking or all actions to be tracked:
+- Prefer the installed Codex `PreToolUse` hook for Bash commands when the runtime supports hooks.
+- Run shell commands through `node <agentpreflight-repo>/setup/preflight-exec.mjs --cwd <cwd> --command "<command>"`.
+- Validate Codex-shaped tool calls through `node <agentpreflight-repo>/setup/codex-preflight.mjs`.
+- For `functions.apply_patch` or file edits, validate the planned Codex call before applying the edit.
+- After execution, read `.preflight/telemetry.jsonl` and report the newest matching entry.
+
 ## Usage pattern
 
 ```ts

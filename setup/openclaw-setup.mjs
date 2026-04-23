@@ -2,12 +2,13 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { pathToFileURL } from "node:url";
 
 function resolveOpenClawHome() {
   return process.env.OPENCLAW_HOME || path.join(os.homedir(), ".openclaw");
 }
 
-function resolveConfigPath(root, openclawHome) {
+function resolveConfigPath(openclawHome) {
   if (process.env.OPENCLAW_CONFIG_PATH) return process.env.OPENCLAW_CONFIG_PATH;
   return path.join(openclawHome, "openclaw.json");
 }
@@ -20,7 +21,7 @@ function readJson(filePath, fallback) {
   }
 }
 
-function upsertConfig(configPath, hookDir) {
+function upsertConfig(configPath, hookBaseDir) {
   const config = readJson(configPath, {});
   if (!config.hooks || typeof config.hooks !== "object") config.hooks = {};
   if (!config.hooks.internal || typeof config.hooks.internal !== "object") config.hooks.internal = {};
@@ -31,8 +32,8 @@ function upsertConfig(configPath, hookDir) {
   if (!Array.isArray(config.hooks.internal.load.extraDirs)) {
     config.hooks.internal.load.extraDirs = [];
   }
-  if (!config.hooks.internal.load.extraDirs.includes(hookDir)) {
-    config.hooks.internal.load.extraDirs.push(hookDir);
+  if (!config.hooks.internal.load.extraDirs.includes(hookBaseDir)) {
+    config.hooks.internal.load.extraDirs.push(hookBaseDir);
   }
   if (!config.hooks.internal.entries || typeof config.hooks.internal.entries !== "object") {
     config.hooks.internal.entries = {};
@@ -44,10 +45,10 @@ function upsertConfig(configPath, hookDir) {
   writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
 }
 
-function main() {
-  const root = process.cwd();
-  const openclawHome = resolveOpenClawHome();
-  const configPath = resolveConfigPath(root, openclawHome);
+export function setupOpenClaw(options = {}) {
+  const root = options.cwd || process.cwd();
+  const openclawHome = options.openclawHome || resolveOpenClawHome();
+  const configPath = options.configPath || resolveConfigPath(openclawHome);
   const localFallbackConfigPath = path.join(root, ".openclaw", "openclaw.json");
   const hookBaseDir = path.join(root, "setup", "openclaw-hooks");
   const hookDir = path.join(hookBaseDir, "agentpreflight");
@@ -62,7 +63,7 @@ name: agentpreflight
 description: Validate command events with agentpreflight before execution.
 metadata:
   openclaw:
-    emoji: "🛡️"
+    emoji: "guard"
     events: ["command"]
     export: "default"
 ---
@@ -109,13 +110,31 @@ export default async function handler(event) {
     }
   }
 
+  return {
+    root,
+    configPath: effectiveConfigPath,
+    hookBaseDir,
+    hookDir,
+    hookDocPath,
+    handlerPath,
+    distMissing: !existsSync(path.join(root, "dist", "index.js")),
+  };
+}
+
+function main() {
+  const result = setupOpenClaw();
   process.stdout.write("OpenClaw agentpreflight setup complete.\n");
-  process.stdout.write(`Config: ${effectiveConfigPath}\n`);
-  process.stdout.write(`Hook dir: ${hookDir}\n`);
+  process.stdout.write(`Config: ${result.configPath}\n`);
+  process.stdout.write(`Hook dir: ${result.hookDir}\n`);
   process.stdout.write("Next: restart OpenClaw gateway, then run `openclaw hooks check`.\n");
-  if (!existsSync(path.join(root, "dist", "index.js"))) {
+  if (result.distMissing) {
     process.stdout.write("Build required: run `npm run build` before starting OpenClaw.\n");
   }
 }
 
-main();
+const isDirectRun =
+  process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
+
+if (isDirectRun) {
+  main();
+}

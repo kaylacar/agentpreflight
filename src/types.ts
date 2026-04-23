@@ -6,7 +6,68 @@ export interface ToolCall {
   tool: string;
   params: Record<string, unknown>;
   agentId?: string;
-  source?: "raw" | "claude" | "cursor" | "codex";
+  source?: "raw" | "claude" | "cursor" | "codex" | "openclaw";
+}
+
+export type EditorialEntry = string | string[];
+
+export interface EditorialState {
+  artifact?: string;
+  locked?: EditorialEntry[];
+  banned?: EditorialEntry[];
+  requiredConcepts?: EditorialEntry[];
+  open?: string[];
+}
+
+export interface EditorialStateUpdate {
+  artifact?: string;
+  locked?: EditorialEntry[];
+  banned?: EditorialEntry[];
+  requiredConcepts?: EditorialEntry[];
+  open?: string[];
+}
+
+export interface EditorialStateHistoryEntry {
+  timestamp: string;
+  status: "created" | "updated" | "unchanged" | "repaired";
+  statePath: string;
+  update: EditorialStateUpdate;
+  source?: string;
+  backupPath?: string;
+}
+
+export interface ProjectState {
+  [key: string]: unknown;
+}
+
+export type EditorialImportSource =
+  | "auto"
+  | "claude-md"
+  | "agents-md"
+  | "codex-notes"
+  | "copilot-instructions"
+  | "openclaw"
+  | "markdown";
+
+export interface EditorialImportResult {
+  source: EditorialImportSource;
+  importPath: string;
+  extracted: EditorialStateUpdate;
+  status?: "created" | "updated" | "unchanged" | "repaired";
+  statePath?: string;
+  backupPath?: string;
+}
+
+export interface DoctorCheck {
+  name: string;
+  status: "pass" | "warn" | "fail";
+  message: string;
+}
+
+export interface DoctorReport {
+  cwd: string;
+  status: "pass" | "warn" | "fail";
+  checks: DoctorCheck[];
 }
 
 export interface ValidationResult {
@@ -39,6 +100,7 @@ export type RuleSet =
   | "secrets"
   | "scope"
   | "release"
+  | "editorial"
   | "prewrite"
   | "session"
   | "time-estimation";
@@ -57,6 +119,20 @@ export interface PreflightPolicyPack {
     typecheckCommand?: string;
     applyToExtensions?: string[];
   };
+  editorialChecks?: {
+    enabled?: boolean;
+    stateFile?: string;
+    enforceOnResponseTools?: boolean;
+    enforceOnWriteTools?: boolean;
+    bannedTerms?: EditorialEntry[];
+    requiredConcepts?: EditorialEntry[];
+  };
+  responseChecks?: {
+    enabled?: boolean;
+  };
+  projectState?: {
+    stateFile?: string;
+  };
   autoPatchAllowedRules?: string[];
   requireCalibrationOnEstimates?: boolean;
 }
@@ -68,6 +144,8 @@ export interface PreflightContext {
   exec: (cmd: string, args: string[], cwd?: string) => Promise<string>;
   inFlight: InFlightTracker;
   manifest?: import("./manifest.js").EnvManifest;
+  projectState?: ProjectState;
+  projectStateError?: string;
   policyMode: PolicyMode;
   sessionToken?: string;
   policyPack?: PreflightPolicyPack;
@@ -81,6 +159,8 @@ export interface PreflightOptions {
   exec?: (cmd: string, args: string[], cwd?: string) => Promise<string>;
   manifestPath?: string;
   manifest?: import("./manifest.js").EnvManifest;
+  projectStatePath?: string;
+  projectState?: ProjectState;
   policyMode?: PolicyMode;
   sessionToken?: string;
   policyPackPath?: string;

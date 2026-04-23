@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function usage() {
   process.stderr.write(
@@ -32,10 +34,14 @@ function loadJson(filePath) {
   return JSON.parse(readFileSync(filePath, "utf8"));
 }
 
+function resolveSdkDistPath() {
+  return path.resolve(__dirname, "..", "dist", "index.js");
+}
+
 async function loadSdk() {
-  const dist = path.resolve(process.cwd(), "dist", "index.js");
+  const dist = resolveSdkDistPath();
   if (!existsSync(dist)) {
-    process.stderr.write("dist/index.js missing. Run: npm run build\n");
+    process.stderr.write(`dist/index.js missing: ${dist}\n`);
     process.exit(2);
   }
   return import(pathToFileURL(dist).href);

@@ -38,7 +38,14 @@ const completionClaimRequiresEvidence: Rule = {
     const isResponseLike = RESPONSE_TOOLS.has(tool) || tool.includes('response') || tool.includes('message');
     return isResponseLike && CLAIM_KEYWORDS.test(text);
   },
-  async validate(call): Promise<ValidationResult> {
+  async validate(call, context): Promise<ValidationResult> {
+    if (context.policyPack?.responseChecks?.enabled === false) {
+      return {
+        status: 'pass',
+        rule: 'release-claim-requires-evidence',
+        message: 'Response/output gates disabled by policy.',
+      };
+    }
     const text = getResponseText(call);
     const hasHeader = EVIDENCE_HEADER.test(text);
     const rows = text.match(EVIDENCE_ROW) ?? [];

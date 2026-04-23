@@ -1,0 +1,28 @@
+{
+  "name": "editorial",
+  "mode": "enforce",
+  "enabledRuleSets": [
+    "filesystem",
+    "git",
+    "secrets",
+    "environment",
+    "scope",
+    "release",
+    "editorial"
+  ],
+  "destructiveRequireToken": true,
+  "autoPatchAllowedRules": ["force-push-protection", "platform-path-sep", "onedrive-redirect"],
+  "requireCalibrationOnEstimates": false,
+  "responseChecks": {
+    "enabled": true
+  },
+  "projectState": {
+    "stateFile": ".preflight/editorial-state.json"
+  },
+  "editorialChecks": {
+    "enabled": true,
+    "stateFile": ".preflight/editorial-state.json",
+    "enforceOnResponseTools": true,
+    "enforceOnWriteTools": true
+  }
+}

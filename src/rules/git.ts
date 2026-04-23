@@ -29,6 +29,10 @@ function isGitCommand(cmd: string): boolean {
   return /\bgit\b/.test(cmd);
 }
 
+function isAmendCommit(cmd: string): boolean {
+  return /\bcommit\b/.test(cmd) && /--amend\b/.test(cmd);
+}
+
 /**
  * Detect force push operations and warn.
  */
@@ -138,10 +142,19 @@ const stagingVerification: Rule = {
     return cmd !== null && isGitCommand(cmd) && /\bcommit\b/.test(cmd);
   },
   async validate(call, ctx) {
+    const cmd = getCommandParam(call)!;
     try {
       const staged = await ctx.exec('git', ['diff', '--cached', '--name-only'], ctx.cwd);
 
       if (!staged.trim()) {
+        if (isAmendCommit(cmd)) {
+          return {
+            status: 'pass',
+            rule: 'staging-verification',
+            message: 'Amend commit allowed without staged files',
+          };
+        }
+
         return {
           status: 'fail',
           rule: 'staging-verification',
@@ -169,7 +182,6 @@ const stagingVerification: Rule = {
       }
 
       // Check for "git add ." or "git add -A" in the command (broad staging)
-      const cmd = getCommandParam(call)!;
       if (/git\s+add\s+(-A|\.)\s*(&&|;)/.test(cmd)) {
         return {
           status: 'warn',

@@ -11,8 +11,20 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "bin": {
+    "agentpreflight-setup-editorial": "./setup/editorial-setup.mjs",
+    "agentpreflight-setup-hooks": "./setup/hooks-setup.mjs",
+    "agentpreflight-codex": "./setup/codex-preflight.mjs",
+    "agentpreflight-codex-hook": "./setup/codex-pre-tool-hook.mjs",
+    "agentpreflight-exec": "./setup/preflight-exec.mjs",
+    "agentpreflight-state": "./setup/state.mjs",
+    "agentpreflight-import": "./setup/import-state.mjs"
+  },
   "files": [
-    "dist"
+    "dist",
+    "setup",
+    "templates",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
@@ -22,6 +34,10 @@
     "verify:merge-gates": "node setup/verify-merge-gates.mjs",
     "typecheck": "tsc --noEmit",
     "setup:claude": "node setup/claude-hook.mjs",
+    "setup:editorial": "node setup/editorial-setup.mjs",
+    "setup:hooks": "node setup/hooks-setup.mjs",
+    "state:editorial": "node setup/state.mjs",
+    "import:editorial": "node setup/import-state.mjs",
     "setup:openclaw": "node setup/openclaw-setup.mjs",
     "openclaw:package": "node setup/package-openclaw-app.mjs",
     "preflight:ci": "node setup/replay-ci.mjs",

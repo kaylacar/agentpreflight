@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeShellCommand, parseArgs } from "../setup/preflight-exec.mjs";
+import { normalizeShellCommand, parseArgs, resolveSdkDistPath } from "../setup/preflight-exec.mjs";
 
 describe("preflight-exec argument and shell normalization", () => {
   it("parses --cwd and --arg tokens into a deterministic command", () => {
@@ -31,5 +31,9 @@ describe("preflight-exec argument and shell normalization", () => {
     const unix = normalizeShellCommand("linux", "echo ok");
     expect(unix.file).toBe("sh");
     expect(unix.args).toEqual(["-lc", "echo ok"]);
+  });
+
+  it("resolves sdk dist relative to the package, not process.cwd", () => {
+    expect(resolveSdkDistPath().replace(/\\/g, "/")).toMatch(/agentpreflight\/dist\/index\.js$/);
   });
 });

@@ -2,6 +2,8 @@
 
 Pre-flight validation for tool calls. Catches mistakes before they execute.
 
+Portable, enforceable project state for agents. Replace tool-specific memory hacks with validation that survives switching between Claude Code, OpenClaw, Codex, and other agents.
+
 Canonical repo:
 `https://github.com/kaylacar/agentpreflight`
 
@@ -29,6 +31,35 @@ python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github
 
 Then restart Codex and use:
 `$agentpreflight ...`
+
+One-command editorial scaffold:
+
+```bash
+npx agentpreflight-setup-editorial --edit
+```
+
+This works from the published package. It creates `.preflight/editorial-state.json` and `.preflight/editorial.preflight.policy.json`, updates them on later runs without overwriting your existing values, backs up malformed scaffold files before repairing them, and opens the state file for editing.
+
+Repo-local equivalent:
+
+```bash
+npm run setup:editorial -- --edit
+```
+
+Add state directly through agentpreflight instead of keeping ad hoc memory notes:
+
+```bash
+npx agentpreflight-setup-editorial --locked "no ecosystem section" --banned "How It Works" --required "control"
+```
+
+Policy packs can also point at a generic project state file and explicitly toggle response/output gates:
+
+```json
+{
+  "responseChecks": { "enabled": true },
+  "projectState": { "stateFile": ".preflight/project-state.json" }
+}
+```
 
 ## Quickstart For Agents
 
@@ -95,6 +126,8 @@ Output:
 
 ## What it does
 
+It also keeps project truth outside model memory. Instead of hoping the next agent remembers a `CLAUDE.md` note or thread detail, you can store local project state and enforce it before execution or output.
+
 AI coding agents make the same mistakes constantly — writing to paths that don't exist, force-pushing to main, committing secrets, not knowing where repos live on the machine. Agentpreflight intercepts tool calls before they run and validates them against the actual system state.
 
 ```ts
@@ -130,12 +163,14 @@ Optimized for both humans and agents: machine-readable validation results for au
 - Version-compat adapters: `claude`, `cursor`, `codex`, `openclaw`, and raw tool-call schema
 - Pre-write content gates (size/type-hint checks) and session checkpoints for destructive commands
 - Pre-write external toolchain gates (`lintCommand`, `typecheckCommand`) configurable per extension
+- Optional editorial continuity gates driven by a local state file
+- Generic project state files for binding local workflow context into validation
 - Command rewrite support via `patch` for safe auto-fixes (e.g. `--force` -> `--force-with-lease`)
 - Auto-patch allowlist (`autoPatchAllowedRules`) to constrain what can be rewritten automatically
 - Structured telemetry JSONL output for pass/warn/fail and top failing rules
 - Stack auto-detection activates rule sets from project markers (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`)
 - CI replay support to validate planned tool-call lists and fail on policy violations
-- Baseline policy templates: `startup-safe`, `enterprise`, `speed`
+- Baseline policy templates: `startup-safe`, `enterprise`, `speed`, `editorial`
 - Time-estimation guardrails with optional mandatory calibration context
 
 **Integration pattern:**
@@ -451,6 +486,7 @@ Policy pack templates:
 - `templates/startup-safe.preflight.policy.json`
 - `templates/enterprise.preflight.policy.json`
 - `templates/speed.preflight.policy.json`
+- `templates/editorial.preflight.policy.json`
 
 CI replay mode:
 

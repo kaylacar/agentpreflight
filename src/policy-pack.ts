@@ -1,7 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { PreflightPolicyPack } from "./types.js";
+
+const moduleDir = fileURLToPath(new URL(".", import.meta.url));
 
 export async function loadPolicyPack(path?: string): Promise<PreflightPolicyPack | undefined> {
   if (!path) return undefined;
@@ -43,10 +46,28 @@ export const baselinePolicies: Record<string, PreflightPolicyPack> = {
     requireCalibrationOnEstimates: false,
     prewriteChecks: { enabled: false },
   },
+  editorial: {
+    name: "editorial",
+    mode: "enforce",
+    enabledRuleSets: ["filesystem", "git", "secrets", "environment", "scope", "release", "editorial"],
+    destructiveRequireToken: true,
+    autoPatchAllowedRules: ["force-push-protection", "platform-path-sep", "onedrive-redirect"],
+    requireCalibrationOnEstimates: false,
+    responseChecks: { enabled: true },
+    projectState: { stateFile: ".preflight/editorial-state.json" },
+    editorialChecks: {
+      enabled: true,
+      stateFile: ".preflight/editorial-state.json",
+      enforceOnResponseTools: true,
+      enforceOnWriteTools: true,
+    },
+  },
 };
 
-export async function loadBaselinePolicyTemplate(name: "startup-safe" | "enterprise" | "speed"): Promise<PreflightPolicyPack> {
-  const file = join(process.cwd(), "templates", `${name}.preflight.policy.json`);
+export async function loadBaselinePolicyTemplate(
+  name: "startup-safe" | "enterprise" | "speed" | "editorial"
+): Promise<PreflightPolicyPack> {
+  const file = join(moduleDir, "..", "templates", `${name}.preflight.policy.json`);
   try {
     const raw = await readFile(file, "utf8");
     return JSON.parse(raw) as PreflightPolicyPack;

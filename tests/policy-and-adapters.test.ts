@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { adaptToolCall, createPreflight } from "../src/index.js";
+import { validateAdapted } from "../src/index.js";
 
 describe("policy modes and adapters", () => {
   it("adapts claude schema to tool call", () => {
@@ -36,9 +37,25 @@ describe("policy modes and adapters", () => {
       },
       "codex"
     );
-    expect(call.tool).toBe("functions.shell_command");
+    expect(call.tool).toBe("bash");
     expect(call.params.command).toBe("git status");
+    expect(call.params.codexTool).toBe("functions.shell_command");
     expect(call.source).toBe("codex");
+  });
+
+  it("adapts codex apply_patch payloads to editable paths", () => {
+    const call = adaptToolCall(
+      {
+        recipient_name: "functions.apply_patch",
+        parameters: {
+          patch: "*** Begin Patch\n*** Update File: src/index.ts\n@@\n-old\n+new\n*** End Patch\n",
+        },
+      },
+      "codex"
+    );
+    expect(call.tool).toBe("edit");
+    expect(call.params.path).toBe("src/index.ts");
+    expect(call.params.content).toContain("*** Begin Patch");
   });
 
   it("adapts openclaw schema variants", () => {
@@ -51,6 +68,43 @@ describe("policy modes and adapters", () => {
     );
     expect(call.tool).toBe("bash");
     expect(call.params.command).toBe("git status --short");
+  });
+
+  it("validateAdapted accepts openclaw schema", async () => {
+    const results = await validateAdapted(
+      {
+        tool_name: "bash",
+        arguments: { cmd: "git push --force origin main" },
+      },
+      "openclaw",
+      { rules: ["git"] }
+    );
+    expect(results.some((r) => r.rule === "force-push-protection")).toBe(true);
+  });
+
+  it("validateAdapted applies command rules to codex shell commands", async () => {
+    const results = await validateAdapted(
+      {
+        recipient_name: "functions.shell_command",
+        parameters: { command: "git push --force origin main" },
+      },
+      "codex",
+      { rules: ["git"] }
+    );
+    expect(results.some((r) => r.rule === "force-push-protection" && r.status === "fail")).toBe(true);
+  });
+
+  it("validateAdapted accepts codex hook payloads", async () => {
+    const results = await validateAdapted(
+      {
+        hook_event_name: "PreToolUse",
+        tool_name: "Bash",
+        tool_input: { command: "git push --force origin main" },
+      },
+      "codex",
+      { rules: ["git"] }
+    );
+    expect(results.some((r) => r.rule === "force-push-protection" && r.status === "fail")).toBe(true);
   });
 
   it("warn-only mode downgrades failures", async () => {
