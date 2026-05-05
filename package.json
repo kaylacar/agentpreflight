@@ -1,6 +1,6 @@
 {
   "name": "agentpreflight",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Pre-flight validation for tool calls that catches mistakes before execution",
   "type": "module",
   "main": "./dist/index.js",
@@ -50,7 +50,18 @@
   "keywords": [
     "validation",
     "tool-calls",
-    "preflight"
+    "preflight",
+    "pre-execution-gate",
+    "claude-code",
+    "claude-code-hooks",
+    "ai-agents",
+    "agent-governance",
+    "agent-tools",
+    "tool-call-validation",
+    "codex",
+    "openclaw",
+    "llm",
+    "hooks"
   ],
   "license": "MIT",
   "devDependencies": {

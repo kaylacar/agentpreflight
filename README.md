@@ -1,36 +1,130 @@
 # agentpreflight
 
-Pre-flight validation for tool calls. Catches mistakes before they execute.
+Pre-flight validation for AI tool calls. Catches mistakes before they execute.
 
-Portable, enforceable project state for agents. Replace tool-specific memory hacks with validation that survives switching between Claude Code, OpenClaw, Codex, and other agents.
+Canonical repo: `https://github.com/kaylacar/agentpreflight`
+npm: `agentpreflight`
 
-Canonical repo:
-`https://github.com/kaylacar/agentpreflight`
+---
 
-## Quickstart For Humans
+## What it is
+
+A pre-execution gate that sits between an AI agent's intent and what it actually runs. Intercepts each tool call, validates it against the real state of the system, blocks the unsafe ones, and rewrites the recoverable ones.
+
+It validates **two lanes with one engine**:
+
+- **Security and correctness** — force-pushes to `main`, secret commits, writes to nonexistent paths, OneDrive redirects, dangerous shell commands, cross-agent file conflicts.
+- **Personal and workflow discipline** — naming conventions, scope creep, session checkpoints, editorial style, time-estimation calibration, completion-claim evidence.
+
+| | Runtime deps | Layer | Workflow / personal rules shipped? |
+|---|---|---|---|
+| **agentpreflight** | **0** (node builtins) | pre-execution tool gate | yes — 7 rule sets |
+| Guardrails AI | 27 | output validator | no |
+| NeMo Guardrails | 21 | dialog + I/O moderation | no |
+| Microsoft Agent Governance Toolkit | heavy multi-language stack | runtime action governance | no |
+
+agentpreflight is not a substitute for an agent runtime governance toolkit. It sits *upstream* of the tool call, in process, with one dependency-free npm install.
+
+---
+
+## Real blocks in production
+
+```
+agentpreflight blocked Bash:
+[FAIL] staging-verification: Nothing is staged for commit
+       → Use git add to stage files first
+```
+Claude ran `git add README.md && git commit -m "..."` as one chained command. The commit ran before staging completed. Blocked. Claude split it into two calls.
+
+```
+agentpreflight blocked Read:
+[FAIL] file-exists-for-read: File does not exist: ./config/settings.json
+```
+Claude tried to read a config file before it was created. Blocked before the round-trip.
+
+```
+agentpreflight blocked Bash:
+[FAIL] force-push-protection: git push --force to main
+       → Use --force-with-lease, or push to a feature branch first
+```
+
+Each blocked call saves roughly 800 tokens — the failed tool output, the error message, and the retry.
+
+---
+
+## Install
 
 ```bash
 npm install agentpreflight
-npm run build
-npm run preflight:exec -- --command "git status --short"
+# or: pnpm add agentpreflight  /  yarn add agentpreflight
 ```
 
-If a preflight rule fails, command execution is blocked.
+Requires Node 18+. ESM only. Zero runtime dependencies.
 
-Reliable wrapper usage (recommended on Windows for quoting/cwd stability):
+---
 
-```bash
-npm run preflight:exec -- --cwd "C:\path\to\repo" --arg npm.cmd --arg run --arg verify
+## 30-second usage
+
+```ts
+import { createPreflight, hasFailures } from 'agentpreflight';
+
+const pf = createPreflight();
+
+const results = await pf.validate({
+  tool: 'bash',
+  params: { command: 'git push --force origin main' },
+});
+
+if (hasFailures(results)) {
+  // block execution — the agent gets a clear reason why
+}
 ```
 
-Codex skill install from this repo:
+Defaults:
+- Telemetry → `.preflight/telemetry.jsonl`
+- `telemetryRequired: true` (fail-closed if telemetry can't be written)
+- Stack auto-detection on when `rules` is not explicitly set
 
-```bash
-python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo kaylacar/agentpreflight --path skills/agentpreflight
+---
+
+## Rule sets at a glance
+
+13 rule sets ship in the package. All load by default. Load a subset:
+
+```ts
+const pf = createPreflight({ rules: ['filesystem', 'git', 'secrets'] });
 ```
 
-Then restart Codex and use:
-`$agentpreflight ...`
+### Security and correctness
+
+| Rule set | Catches |
+|---|---|
+| `filesystem` | Writes to nonexistent dirs, missing reads, sensitive-file writes |
+| `git` | Force-pushes to main, unstaged commits, `--no-verify`, branch protection |
+| `secrets` | API keys, tokens, private keys in content or shell commands |
+| `environment` | OneDrive redirects, wrong path separators, tilde paths, `/dev/null` on Windows |
+| `network` | HTTP (not HTTPS) URLs in commands, localhost URLs that look prod-bound |
+| `parallel` | Cross-agent file conflicts, simultaneous git operations |
+
+### Personal and workflow discipline
+
+| Rule set | Enforces |
+|---|---|
+| `naming` | No spaces in filenames, casing rules, extension/content match |
+| `scope` | No writes outside cwd, dangerous-command detection |
+| `editorial` | Locked phrases, banned words, required terms (state-driven) |
+| `session` | Session checkpoints before destructive commands |
+| `time-estimation` | Calibration drift on `bestCase`/`p90`/`actual` minutes |
+| `prewrite` | Pre-write external gates: lint, typecheck, type-hint match |
+| `release` | Completion claims must include an evidence table |
+
+Detailed rule tables: [Detailed rules](#detailed-rules).
+
+---
+
+## Personal rules — keep project truth outside model memory
+
+Instead of hoping the next agent remembers a `CLAUDE.md` note or a thread detail, store project state locally and enforce it before execution or output.
 
 One-command editorial scaffold:
 
@@ -38,18 +132,15 @@ One-command editorial scaffold:
 npx agentpreflight-setup-editorial --edit
 ```
 
-This works from the published package. It creates `.preflight/editorial-state.json` and `.preflight/editorial.preflight.policy.json`, updates them on later runs without overwriting your existing values, backs up malformed scaffold files before repairing them, and opens the state file for editing.
-
-Repo-local equivalent:
-
-```bash
-npm run setup:editorial -- --edit
-```
+Creates `.preflight/editorial-state.json` and `.preflight/editorial.preflight.policy.json`, updates them on later runs without overwriting your existing values, backs up malformed scaffold files before repairing them, and opens the state file for editing.
 
 Add state directly through agentpreflight instead of keeping ad hoc memory notes:
 
 ```bash
-npx agentpreflight-setup-editorial --locked "no ecosystem section" --banned "How It Works" --required "control"
+npx agentpreflight-setup-editorial \
+  --locked "no ecosystem section" \
+  --banned "How It Works" \
+  --required "control"
 ```
 
 Policy packs can also point at a generic project state file and explicitly toggle response/output gates:
@@ -61,275 +152,50 @@ Policy packs can also point at a generic project state file and explicitly toggl
 }
 ```
 
-## Quickstart For Agents
-
-```ts
-import { createPreflight, hasFailures } from 'agentpreflight';
-
-const pf = createPreflight();
-const results = await pf.validate({
-  tool: 'bash',
-  params: { command: 'git push --force origin main' },
-});
-
-if (hasFailures(results)) {
-  // block execution
-}
-```
-
-Defaults:
-- telemetry writes to `.preflight/telemetry.jsonl`
-- `telemetryRequired` defaults to `true` (fail-closed if telemetry cannot be written)
-- stack auto-detection is on by default when `rules` are not explicitly set
-
-## OpenClaw Quickstart (5 minutes)
-
-```bash
-npm install
-npm run build
-npm run setup:openclaw
-npm run openclaw:package
-```
-
-Restart OpenClaw gateway, then run `openclaw hooks check`.
-For listing prep, follow `docs/openclaw-publish-checklist.md`.
-
-## Evidence Outputs
-
-False-positive labeling:
-
-```bash
-npm run preflight:fp-label
-```
-
-Outputs:
-- `.preflight/fp-review.csv` (fill `human_label` and `notes`)
-- `.preflight/fp-summary.json` (estimated FP rate before human adjudication)
-
-Blocked incidents report:
-
-```bash
-npm run preflight:incidents
-```
-
-Output:
-- `.preflight/blocked-incidents.md` (recent blocked events for proof/evidence)
-
-Metrics report:
-
-```bash
-npm run preflight:report
-```
-
-Output:
-- `.preflight/metrics-report.md`
-
-## What it does
-
-It also keeps project truth outside model memory. Instead of hoping the next agent remembers a `CLAUDE.md` note or thread detail, you can store local project state and enforce it before execution or output.
-
-AI coding agents make the same mistakes constantly — writing to paths that don't exist, force-pushing to main, committing secrets, not knowing where repos live on the machine. Agentpreflight intercepts tool calls before they run and validates them against the actual system state.
-
-```ts
-import { createPreflight, hasFailures } from 'agentpreflight';
-
-const pf = createPreflight();
-
-const results = await pf.validate({
-  tool: 'bash',
-  params: { command: 'git push --force origin main' },
-});
-
-if (hasFailures(results)) {
-  // don't execute — agent gets a clear reason why
-}
-```
-
 ---
 
-## For agents
+## Environment manifest
 
-Optimized for both humans and agents: machine-readable validation results for automation, clear messages and suggestions for operator review.
+The most common agent friction point: not knowing where things are on the machine.
 
-**Purpose:** Pre-flight validation SDK for AI agent tool calls. Prevents filesystem errors, git mistakes, secret leaks, and path resolution failures before execution.
+Create `~/.preflight-env.json` once:
 
-**Capabilities:**
-- Validate tool calls before execution (`filesystem`, `git`, `secrets`, `environment`, `naming`, `network`, `parallel`, `scope`, `release`)
-- Resolve local repo paths without asking the user (`getEnv`, `resolveRepo`)
-- Detect and correct platform path errors, OneDrive redirects, wrong separators
-- Block force pushes to main, secret commits, writes to nonexistent directories
-- Catch cross-agent file conflicts in parallel execution environments
-- Deterministic policy modes: `enforce`, `audit-only`, `warn-only` (default: `enforce`)
-- Version-compat adapters: `claude`, `cursor`, `codex`, `openclaw`, and raw tool-call schema
-- Pre-write content gates (size/type-hint checks) and session checkpoints for destructive commands
-- Pre-write external toolchain gates (`lintCommand`, `typecheckCommand`) configurable per extension
-- Optional editorial continuity gates driven by a local state file
-- Generic project state files for binding local workflow context into validation
-- Command rewrite support via `patch` for safe auto-fixes (e.g. `--force` -> `--force-with-lease`)
-- Auto-patch allowlist (`autoPatchAllowedRules`) to constrain what can be rewritten automatically
-- Structured telemetry JSONL output for pass/warn/fail and top failing rules
-- Stack auto-detection activates rule sets from project markers (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`)
-- CI replay support to validate planned tool-call lists and fail on policy violations
-- Baseline policy templates: `startup-safe`, `enterprise`, `speed`, `editorial`
-- Time-estimation guardrails with optional mandatory calibration context
+```json
+{
+  "repos": {
+    "my-repo": "/absolute/path/to/my-repo",
+    "another-repo": "/absolute/path/to/another-repo"
+  },
+  "paths": {
+    "desktop": "/Users/you/Desktop",
+    "github": "/Users/you/Documents/GitHub"
+  }
+}
+```
 
-**Integration pattern:**
+Then at session start:
 
 ```ts
-import { createPreflight, getEnv, hasFailures } from 'agentpreflight';
+import { getEnv, resolveRepo, resolvePath } from 'agentpreflight';
 
-// Step 1 — session start: resolve local environment
-const env = await getEnv(); // reads ~/.preflight-env.json
-// env.repos → { 'repo-name': '/absolute/local/path', ... }
-// env.paths → { 'desktop': '/absolute/path', ... }
+const env = await getEnv(); // null if file doesn't exist — not an error
 
-// Step 2 — before every tool call: validate
-const pf = createPreflight();
-const results = await pf.validate({ tool: 'write', params: { path: '...' } });
-
-// Step 3 — act on results
-if (hasFailures(results)) { /* abort */ }
-// result.suggestion contains corrected value when status === 'warn'
+if (env) {
+  resolveRepo(env, 'my-repo');     // → '/absolute/path/to/my-repo'
+  resolvePath(env, 'desktop');     // → '/Users/you/Desktop'
+  resolveRepo(env, 'unknown');     // → null
+}
 ```
 
-Policy mode and telemetry:
+The `repo-path-resolution` rule uses the manifest automatically. If an agent passes a relative repo name as a path, it gets a `warn` result with the resolved absolute path in `suggestion`.
 
-```ts
-const pf = createPreflight({
-  policyMode: 'enforce', // enforce | audit-only | warn-only
-  // default telemetryPath is '.preflight/telemetry.jsonl' if omitted
-  telemetryPath: '.preflight/telemetry.jsonl',
-  telemetryRequired: true, // default true (fail-closed if telemetry write fails)
-});
-```
-
-Compatibility adapter usage:
-
-```ts
-import { validateAdapted } from 'agentpreflight';
-
-const results = await validateAdapted(claudeHookPayload, 'claude', {
-  policyMode: 'enforce',
-});
-```
-
-OpenClaw adapter usage:
-
-```ts
-const results = await validateAdapted(openclawPayload, 'openclaw', {
-  policyMode: 'enforce',
-});
-```
-
-OpenClaw hook (copy/paste):
-
-```bash
-npm run build
-node setup/openclaw-preflight-hook.mjs < your-openclaw-tool-call.json
-```
-
-Command preflight with safe rewrite support:
-
-```ts
-const { results, blocked, patchedCall } = await pf.preflightCommand({
-  tool: 'bash',
-  params: { command: 'git push --force origin feature-x' },
-});
-```
-
-Time estimation calibration helpers:
-
-```ts
-import { recordTimeEstimate, estimateDrift } from 'agentpreflight';
-
-recordTimeEstimate('.preflight/time-estimates.jsonl', {
-  taskId: 'phase-2-search',
-  bestCaseMinutes: 90,
-  p90Minutes: 180,
-  actualMinutes: 140,
-});
-const drift = estimateDrift('.preflight/time-estimates.jsonl');
-```
-
-**Result schema:**
-```ts
-{ status: 'pass' | 'warn' | 'fail', rule: string, message: string, suggestion?: string }
-```
-
-**When `status === 'warn'`:** check `suggestion` — it contains the corrected path, safer command, or next step.
-
-**When `status === 'fail'`:** do not execute the tool call.
-
-**Tool name matching:** case-insensitive. `write_file`, `Write`, `WRITE` all match.
-
-**Param resolution:** checks `path`, `file_path`, `file`, `command`, `cmd`, `content`, `new_string` for compatibility across common coding tools.
+On Windows with OneDrive, agentpreflight already knows that `Desktop` and `Documents` are likely redirected. The `onedrive-redirect` rule catches this automatically — no manifest needed for that.
 
 ---
 
 ## Claude Code global hook
 
-Install once. Validates every tool call Claude makes, across every project, permanently. Each blocked call saves ~800 tokens — the failed tool output, the error, and the retry.
-
-## Mandatory enforcement mode
-
-If you want agentpreflight to be real control-plane (not advisory), enforce one of these:
-
-1. Claude Code `PreToolUse` hook (global, automatic).
-2. Wrapper execution for shell commands via:
-
-```bash
-npm run build
-npm run preflight:exec -- --command "git push origin master"
-```
-
-This wrapper blocks execution on `fail` and only runs the command if preflight passes.
-
-For unattended runs with chunking, retries, gates, and state persistence:
-
-```bash
-npm run build
-cp templates/overnight.plan.json .preflight/overnight.plan.json
-npm run preflight:overnight -- --plan .preflight/overnight.plan.json
-```
-
-This command fails closed. It validates every command before running, enforces gate commands per chunk, retries only up to max attempts, and writes resumable state to `.preflight/overnight.state.json` plus handoff notes to `.preflight/agent-log.md`.
-
-## Merge Gate Baseline
-
-Keep this repo as a guardrail baseline layer:
-
-```bash
-npm run verify:merge-gates
-```
-
-This enforces:
-- `typecheck`, `build`, and full test suite
-- `preflight:exec` contract behavior (allow safe command, block force-push to `main`)
-- policy template contract coverage
-
-Only merge additions mapped to a concrete failure mode ticket in `docs/failure-mode-template.md`.
-
-### Gstack-style quick install
-
-Open Claude Code and paste this:
-
-```text
-Install agentpreflight globally for Claude: run `git clone https://github.com/kaylacar/agentpreflight.git ~/.claude/skills/agentpreflight && cd ~/.claude/skills/agentpreflight && pnpm install && npm run setup:claude` then restart Claude Code.
-Then update your project `CLAUDE.md` with an "agentpreflight" section that says: if the user says `agentpreflight` or `preflight`, run preflight validation before tool execution, block on fail, and report warnings with suggestions.
-```
-
-Add this to your project `CLAUDE.md`:
-
-```md
-## agentpreflight
-
-When the user says `agentpreflight` or `preflight`, validate planned tool calls with `agentpreflight` before execution.
-
-Rules:
-- If any result is `fail`, do not execute the tool call.
-- If results are only `warn`, show warnings and apply safe suggestions.
-- Always report: `Preflight: pass|warn|fail`, rule findings, and whether execution is blocked.
-```
+Install once. Validates every tool call Claude makes, across every project, permanently.
 
 **1. Set up the hook directory**
 
@@ -338,15 +204,17 @@ mkdir -p ~/.claude/hooks && cd ~/.claude/hooks
 ```
 
 Create `package.json`:
+
 ```json
 {
   "name": "claude-hooks",
   "version": "1.0.0",
   "type": "module",
   "private": true,
-  "dependencies": { "agentpreflight": "^0.1.0" }
+  "dependencies": { "agentpreflight": "^0.1.1" }
 }
 ```
+
 ```bash
 pnpm install
 ```
@@ -452,225 +320,122 @@ if (Object.keys(blocksByRule).length) {
 node ~/.claude/hooks/stats.mjs
 ```
 
-**Real blocks in production:**
-
-```
-agentpreflight blocked Bash:
-[FAIL] staging-verification: Nothing is staged for commit
-       → Use git add to stage files first
-```
-Claude ran `git add README.md && git commit -m "..."` as one chained command. The commit ran before staging completed. Blocked. Claude split into two calls.
-
-```
-agentpreflight blocked Read:
-[FAIL] file-exists-for-read: File does not exist: ./config/settings.json
-```
-Claude tried to read a config file before it was created. Blocked before the round-trip.
-
 ---
 
-## Installation
+## Codex skill
+
+Install from this repo:
 
 ```bash
-npm install agentpreflight
-# or
-pnpm add agentpreflight
-# or
-yarn add agentpreflight
+python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
+  --repo kaylacar/agentpreflight --path skills/agentpreflight
 ```
 
-Requires Node 18+. ESM only. Zero runtime dependencies.
+Then restart Codex and use:
 
-Policy pack templates:
-
-- `templates/startup-safe.preflight.policy.json`
-- `templates/enterprise.preflight.policy.json`
-- `templates/speed.preflight.policy.json`
-- `templates/editorial.preflight.policy.json`
-
-CI replay mode:
-
-```bash
-npm run preflight:ci -- ./tool-calls.json
+```
+$agentpreflight ...
 ```
 
 ---
 
-## Quick start
+## OpenClaw
+
+```bash
+npm install
+npm run build
+npm run setup:openclaw
+npm run openclaw:package
+```
+
+Restart the OpenClaw gateway, then run `openclaw hooks check`. Listing prep: see `docs/openclaw-publish-checklist.md`.
+
+OpenClaw adapter usage from code:
 
 ```ts
-import { createPreflight, hasFailures, hasWarnings, formatResults } from 'agentpreflight';
+import { validateAdapted } from 'agentpreflight';
 
-const pf = createPreflight(); // loads all rule sets by default
-
-const results = await pf.validate({
-  tool: 'write',
-  params: { path: '/nonexistent/dir/file.txt', content: 'hello' },
+const results = await validateAdapted(openclawPayload, 'openclaw', {
+  policyMode: 'enforce',
 });
-
-console.log(formatResults(results));
-// [FAIL] parent-dir-exists: Parent directory does not exist: /nonexistent/dir
-//   → Create it first, or check the path
-
-if (hasFailures(results)) {
-  // abort
-}
 ```
 
 ---
 
-## Environment manifest
+## Mandatory enforcement mode
 
-The most common agent friction point: not knowing where things are on the machine.
+If you want agentpreflight to be a real control plane (not advisory), enforce one of these:
 
-Create `~/.preflight-env.json` to declare your local environment once:
+1. **Claude Code `PreToolUse` hook** (above) — global and automatic.
+2. **Wrapper execution** for shell commands:
 
-```json
-{
-  "repos": {
-    "my-repo": "/absolute/path/to/my-repo",
-    "another-repo": "/absolute/path/to/another-repo"
-  },
-  "paths": {
-    "desktop": "/Users/you/Desktop",
-    "github": "/Users/you/Documents/GitHub"
-  }
-}
+```bash
+npm run preflight:exec -- --command "git push origin master"
 ```
 
-Then at session start:
+Reliable wrapper usage on Windows (quoting/cwd stable):
 
-```ts
-import { getEnv, resolveRepo, resolvePath } from 'agentpreflight';
-
-const env = await getEnv();
-// returns null if ~/.preflight-env.json doesn't exist — not an error
-
-if (env) {
-  resolveRepo(env, 'my-repo');     // → '/absolute/path/to/my-repo'
-  resolvePath(env, 'desktop');     // → '/Users/you/Desktop'
-  resolveRepo(env, 'unknown');     // → null
-}
+```bash
+npm run preflight:exec -- --cwd "C:\path\to\repo" --arg npm.cmd --arg run --arg verify
 ```
 
-The `repo-path-resolution` rule also uses the manifest automatically. If an agent passes a relative repo name as a path, it gets a `warn` result with the resolved absolute path in `suggestion`.
+This wrapper blocks execution on `fail` and only runs the command if preflight passes.
 
-**On Windows with OneDrive**, agentpreflight already knows that `Desktop` and `Documents` are likely redirected. The `onedrive-redirect` rule catches this automatically — no manifest needed for that.
+3. **Unattended overnight runs** with chunking, retries, gates, and state persistence:
+
+```bash
+cp templates/overnight.plan.json .preflight/overnight.plan.json
+npm run preflight:overnight -- --plan .preflight/overnight.plan.json
+```
+
+Fails closed. Validates every command before running, enforces gate commands per chunk, retries only up to max attempts, and writes resumable state to `.preflight/overnight.state.json` plus handoff notes to `.preflight/agent-log.md`.
 
 ---
 
-## Rule sets
+## Evidence outputs
 
-All rule sets are loaded by default. Load only what you need:
+False-positive labeling:
 
-```ts
-const pf = createPreflight({ rules: ['filesystem', 'git', 'secrets'] });
+```bash
+npm run preflight:fp-label
 ```
 
-### `filesystem`
+Outputs:
+- `.preflight/fp-review.csv` (fill `human_label` and `notes`)
+- `.preflight/fp-summary.json` (estimated FP rate before human adjudication)
 
-Validates file operations before they touch disk.
+Blocked-incidents report:
 
-| Rule | Triggers on | Result |
-|------|-------------|--------|
-| `parent-dir-exists` | write to path whose parent doesn't exist | fail |
-| `file-exists-for-read` | read a file that doesn't exist | fail |
-| `write-permission` | write to directory without permission | fail |
-| `symlink-resolution` | path is a symlink to a different location | warn + real path |
-| `sensitive-file-write` | write to `.env`, credentials, keys, etc. | warn |
+```bash
+npm run preflight:incidents
+```
 
-**Matched tools:** `write_file`, `write`, `edit`, `edit_file`, `create_file`, `notebookedit`
+Output: `.preflight/blocked-incidents.md` (recent blocked events for proof / evidence).
 
-### `git`
+Metrics report:
 
-Validates git operations in bash commands.
+```bash
+npm run preflight:report
+```
 
-| Rule | Triggers on | Result |
-|------|-------------|--------|
-| `force-push-protection` | `git push --force` to main/master | fail |
-| `force-push-protection` | `git push --force` to other branches | warn |
-| `push-upstream-check` | push with no upstream set | warn |
-| `push-upstream-check` | push when branch has diverged | fail |
-| `staging-verification` | commit with nothing staged | fail |
-| `staging-verification` | sensitive files staged | warn |
-| `branch-protection` | destructive ops on main/master | warn |
-| `no-verify-detection` | `--no-verify` flag | warn |
+Output: `.preflight/metrics-report.md`.
 
-**Matched tools:** `bash` (commands containing `git`)
+---
 
-### `environment`
+## Merge-gate baseline
 
-Catches platform and path mismatches.
+Keep this repo (or your fork) as a guardrail baseline layer:
 
-| Rule | Triggers on | Result |
-|------|-------------|--------|
-| `onedrive-redirect` | Windows path missing OneDrive segment | warn + corrected path |
-| `platform-path-sep` | wrong slash direction for the OS | warn + corrected path |
-| `home-dir-resolution` | tilde path (`~/...`) | warn + expanded path |
-| `devnull-platform` | `NUL` on Unix or `/dev/null` wrong | warn |
-| `repo-path-resolution` | relative repo name resolvable via manifest | warn + absolute path |
+```bash
+npm run verify:merge-gates
+```
 
-**Matched tools:** all file tools + bash
+This enforces:
+- `typecheck`, `build`, and full test suite (140 tests)
+- `preflight:exec` contract behavior (allow safe command, block force-push to `main`)
+- Policy-template contract coverage
 
-### `secrets`
-
-Scans file content and shell commands for credentials.
-
-Detects: common API keys and tokens (npm, GitHub, AWS, Stripe, Cloudflare), private key blocks, and generic `SECRET=` / `API_KEY=` patterns.
-
-| Rule | Triggers on | Result |
-|------|-------------|--------|
-| `secrets-in-file-content` | write with secret in content | fail |
-| `secrets-in-bash-command` | bash command containing secret | warn |
-
-### `naming`
-
-Enforces file naming conventions and catches common mistakes.
-
-| Rule | Triggers on | Result |
-|------|-------------|--------|
-| `no-spaces-in-filename` | spaces in filename | fail |
-| `no-uppercase-in-path` | uppercase in filename (configurable) | warn |
-| `extension-mismatch` | content doesn't match file extension | warn |
-
-### `network`
-
-Validates network operations in bash commands.
-
-| Rule | Triggers on | Result |
-|------|-------------|--------|
-| `no-http-in-production` | HTTP (not HTTPS) URLs in commands | warn |
-| `localhost-in-production` | localhost URLs that look production-bound | warn |
-
-### `parallel`
-
-Detects conflicts when multiple agents run simultaneously.
-
-| Rule | Triggers on | Result |
-|------|-------------|--------|
-| `cross-agent-file-conflict` | two agents writing the same file | fail |
-| `cross-agent-git-conflict` | two agents running git operations | warn |
-
-### `scope`
-
-Catches tool calls that exceed what was asked.
-
-| Rule | Triggers on | Result |
-|------|-------------|--------|
-| `write-outside-cwd` | write to path outside working directory | warn |
-| `bash-dangerous-command` | `rm -rf`, `chmod 777`, `sudo`, etc. | warn or fail |
-
-### `release`
-
-Guards completion claims in assistant output payloads.
-
-| Rule | Triggers on | Result |
-|------|-------------|--------|
-| `release-claim-requires-evidence` | completion claims like "done/live/fixed" without evidence table | fail |
-
-Required evidence table shape:
-
-`| URL | Action | Expected | Actual | Pass/Fail |`
+Only merge additions mapped to a concrete failure mode ticket in `docs/failure-mode-template.md`.
 
 ---
 
@@ -678,30 +443,68 @@ Required evidence table shape:
 
 ```ts
 const pf = createPreflight({
-  // Rule sets to load. Default: all. Mix strings and custom Rule objects.
+  // Rule sets to load. Default: all. Mix string names and custom Rule objects.
   rules: ['filesystem', 'git', myCustomRule],
 
-  // Platform override — useful for cross-platform testing
-  platform: 'win32',
+  // Policy mode
+  policyMode: 'enforce', // enforce | audit-only | warn-only
 
-  // Working directory override
+  // Telemetry
+  telemetryPath: '.preflight/telemetry.jsonl',
+  telemetryRequired: true,                   // fail-closed if write fails
+
+  // Platform / paths
+  platform: 'win32',                         // override for cross-platform tests
   cwd: '/my/project',
-
-  // Home directory override
   homeDir: '/Users/me',
 
   // Shell exec override — useful for mocking git in tests
-  exec: async (cmd, args, cwd) => { ... },
+  exec: async (cmd, args, cwd) => { /* ... */ },
 
-  // Path to manifest file (default: ~/.preflight-env.json)
+  // Manifest
   manifestPath: '/custom/path/.preflight-env.json',
-
-  // Inline manifest — skips file loading, useful for testing
   manifest: {
     repos: { 'my-repo': '/absolute/path' },
     paths: { desktop: '/Users/me/Desktop' },
   },
 });
+```
+
+Compatibility adapter usage:
+
+```ts
+import { validateAdapted } from 'agentpreflight';
+
+const results = await validateAdapted(claudeHookPayload, 'claude', {
+  policyMode: 'enforce',
+});
+```
+
+Adapters: `claude`, `cursor`, `codex`, `openclaw`, and the raw tool-call schema.
+
+Command preflight with safe rewrite:
+
+```ts
+const { results, blocked, patchedCall } = await pf.preflightCommand({
+  tool: 'bash',
+  params: { command: 'git push --force origin feature-x' },
+});
+```
+
+Auto-patch allowlist (`autoPatchAllowedRules`) constrains what can be rewritten automatically (e.g. `--force` → `--force-with-lease`).
+
+Time-estimation calibration:
+
+```ts
+import { recordTimeEstimate, estimateDrift } from 'agentpreflight';
+
+recordTimeEstimate('.preflight/time-estimates.jsonl', {
+  taskId: 'phase-2-search',
+  bestCaseMinutes: 90,
+  p90Minutes: 180,
+  actualMinutes: 140,
+});
+const drift = estimateDrift('.preflight/time-estimates.jsonl');
 ```
 
 ---
@@ -742,8 +545,7 @@ const pf = createPreflight({ rules: ['filesystem', noTodoFiles] });
 
 ### `createPreflight(options?)`
 
-Returns a `Preflight` instance.
-By default it writes telemetry to `.preflight/telemetry.jsonl`.
+Returns a `Preflight` instance. By default writes telemetry to `.preflight/telemetry.jsonl`.
 
 ### `pf.validate(call)`
 
@@ -765,61 +567,26 @@ getEnv(manifestPath?: string): Promise<EnvManifest | null>
 
 Loads `~/.preflight-env.json` (or the specified path). Returns `null` if not found.
 
-### `resolveRepo(manifest, name)`
+### `resolveRepo(manifest, name)` / `resolvePath(manifest, name)`
 
 ```ts
 resolveRepo(manifest: EnvManifest, name: string): string | null
-```
-
-Returns the absolute local path for a repo name. Returns `null` if not in manifest.
-
-### `resolvePath(manifest, name)`
-
-```ts
 resolvePath(manifest: EnvManifest, name: string): string | null
 ```
 
-Returns the absolute local path for a named path. Returns `null` if not declared.
+Returns the absolute local path for a repo or named path. Returns `null` if not declared.
 
 ### `loadManifest(manifestPath?)`
 
-```ts
-loadManifest(manifestPath?: string): Promise<EnvManifest | null>
-```
-
 Load and parse the manifest file directly.
 
-### `hasFailures(results)`
+### `hasFailures(results)` / `hasWarnings(results)`
 
-```ts
-hasFailures(results: ValidationResult[]): boolean
-```
+Booleans. Use `hasFailures` to decide whether to abort a tool call.
 
-Returns `true` if any result has `status: 'fail'`. Use this to decide whether to abort a tool call.
+### `formatResults(results)` / `summary(results)`
 
-### `hasWarnings(results)`
-
-```ts
-hasWarnings(results: ValidationResult[]): boolean
-```
-
-Returns `true` if any result has `status: 'warn'`.
-
-### `formatResults(results)`
-
-```ts
-formatResults(results: ValidationResult[]): string
-```
-
-Human-readable multi-line output. Each result includes status, rule name, message, and suggestion if present.
-
-### `summary(results)`
-
-```ts
-summary(results: ValidationResult[]): { pass: number; warn: number; fail: number }
-```
-
-Counts by status.
+Human-readable multi-line output, and counts by status (`{ pass, warn, fail }`).
 
 ---
 
@@ -845,9 +612,144 @@ interface EnvManifest {
 }
 ```
 
+**Tool name matching:** case-insensitive. `write_file`, `Write`, `WRITE` all match.
+
+**Param resolution:** checks `path`, `file_path`, `file`, `command`, `cmd`, `content`, `new_string` for compatibility across common coding tools.
+
+---
+
+## Detailed rules
+
+### `filesystem`
+
+| Rule | Triggers on | Result |
+|------|-------------|--------|
+| `parent-dir-exists` | write to path whose parent doesn't exist | fail |
+| `file-exists-for-read` | read a file that doesn't exist | fail |
+| `write-permission` | write to directory without permission | fail |
+| `symlink-resolution` | path is a symlink to a different location | warn + real path |
+| `sensitive-file-write` | write to `.env`, credentials, keys, etc. | warn |
+
+Matched tools: `write_file`, `write`, `edit`, `edit_file`, `create_file`, `notebookedit`.
+
+### `git`
+
+| Rule | Triggers on | Result |
+|------|-------------|--------|
+| `force-push-protection` | `git push --force` to main/master | fail |
+| `force-push-protection` | `git push --force` to other branches | warn |
+| `push-upstream-check` | push with no upstream set | warn |
+| `push-upstream-check` | push when branch has diverged | fail |
+| `staging-verification` | commit with nothing staged | fail |
+| `staging-verification` | sensitive files staged | warn |
+| `branch-protection` | destructive ops on main/master | warn |
+| `no-verify-detection` | `--no-verify` flag | warn |
+
+Matched tools: `bash` (commands containing `git`).
+
+### `environment`
+
+| Rule | Triggers on | Result |
+|------|-------------|--------|
+| `onedrive-redirect` | Windows path missing OneDrive segment | warn + corrected path |
+| `platform-path-sep` | wrong slash direction for the OS | warn + corrected path |
+| `home-dir-resolution` | tilde path (`~/...`) | warn + expanded path |
+| `devnull-platform` | `NUL` on Unix or `/dev/null` wrong | warn |
+| `repo-path-resolution` | relative repo name resolvable via manifest | warn + absolute path |
+
+Matched tools: all file tools + bash.
+
+### `secrets`
+
+Detects: common API keys and tokens (npm, GitHub, AWS, Stripe, Cloudflare), private-key blocks, and generic `SECRET=` / `API_KEY=` patterns.
+
+| Rule | Triggers on | Result |
+|------|-------------|--------|
+| `secrets-in-file-content` | write with secret in content | fail |
+| `secrets-in-bash-command` | bash command containing secret | warn |
+
+### `naming`
+
+| Rule | Triggers on | Result |
+|------|-------------|--------|
+| `no-spaces-in-filename` | spaces in filename | fail |
+| `no-uppercase-in-path` | uppercase in filename (configurable) | warn |
+| `extension-mismatch` | content doesn't match file extension | warn |
+
+### `network`
+
+| Rule | Triggers on | Result |
+|------|-------------|--------|
+| `no-http-in-production` | HTTP (not HTTPS) URLs in commands | warn |
+| `localhost-in-production` | localhost URLs that look production-bound | warn |
+
+### `parallel`
+
+| Rule | Triggers on | Result |
+|------|-------------|--------|
+| `cross-agent-file-conflict` | two agents writing the same file | fail |
+| `cross-agent-git-conflict` | two agents running git operations | warn |
+
+### `scope`
+
+| Rule | Triggers on | Result |
+|------|-------------|--------|
+| `write-outside-cwd` | write to path outside working directory | warn |
+| `bash-dangerous-command` | `rm -rf`, `chmod 777`, `sudo`, etc. | warn or fail |
+
+### `editorial`
+
+State-driven prose discipline (locked phrases, banned words, required terms). Configured via `.preflight/editorial-state.json` and the `editorial.preflight.policy.json` policy pack. Use `agentpreflight-setup-editorial` to scaffold.
+
+### `session`
+
+Session checkpoints before destructive commands. Records intent + decision points so a later agent can resume without re-deriving context.
+
+### `time-estimation`
+
+Calibration drift on `bestCase` / `p90` / `actual` minutes. Optionally requires mandatory calibration context before recording new estimates. Drift across the JSONL log surfaces consistent over- or under-estimation.
+
+### `prewrite`
+
+Pre-write external toolchain gates (`lintCommand`, `typecheckCommand`) configurable per file extension. Fails closed if the lint or typecheck fails before the write.
+
+### `release`
+
+| Rule | Triggers on | Result |
+|------|-------------|--------|
+| `release-claim-requires-evidence` | completion claims like "done / live / fixed" without an evidence table | fail |
+
+Required evidence-table shape:
+
+`| URL | Action | Expected | Actual | Pass/Fail |`
+
+---
+
+## Policy-pack templates
+
+- `templates/startup-safe.preflight.policy.json`
+- `templates/enterprise.preflight.policy.json`
+- `templates/speed.preflight.policy.json`
+- `templates/editorial.preflight.policy.json`
+- `templates/quickstart.preflight.policy.json`
+
+CI replay mode:
+
+```bash
+npm run preflight:ci -- ./tool-calls.json
+```
+
+---
+
+## Stats
+
+- 140 tests passing across 26 test files
+- 13 rule sets, 7 of them workflow / personal-discipline
+- 0 runtime dependencies (only Node builtins)
+- 455 KB unpacked, 35 files on npm
+
 ---
 
 ## License
 
 MIT — Kayla Cardillo / [Tech Enrichment](https://techenrichment.com)
-
