@@ -215,6 +215,59 @@ describe('git rules', () => {
       expect(rule!.status).toBe('pass');
       expect(rule!.message).toContain('Amend commit allowed');
     });
+
+    it('passes when staging is chained inline before commit', async () => {
+      const exec = async (_cmd: string, args: string[]): Promise<string> => {
+        if (args.includes('--cached')) return ''; // nothing staged at preflight time
+        return '';
+      };
+      const pf = makePreflight(exec);
+      const call: ToolCall = {
+        tool: 'bash',
+        params: { command: 'git add src/foo.ts && git commit -m "add foo"' },
+      };
+      const results = await pf.validate(call);
+      const rule = results.find((r) => r.rule === 'staging-verification');
+      expect(rule).toBeDefined();
+      expect(rule!.status).toBe('pass');
+      expect(rule!.message).toContain('Inline staging');
+    });
+
+    it('warns when broad inline staging is chained before commit', async () => {
+      const exec = async (_cmd: string, args: string[]): Promise<string> => {
+        if (args.includes('--cached')) return '';
+        return '';
+      };
+      const pf = makePreflight(exec);
+      const call: ToolCall = {
+        tool: 'bash',
+        params: { command: 'git add -A && git commit -m "everything"' },
+      };
+      const results = await pf.validate(call);
+      const rule = results.find((r) => r.rule === 'staging-verification');
+      expect(rule).toBeDefined();
+      expect(rule!.status).toBe('warn');
+      expect(rule!.message).toContain('Broad inline staging');
+    });
+
+    it('does not treat a commit-then-add chain as inline staging', async () => {
+      // Order matters: add must precede commit. A chain like
+      // `git commit ... && git add ...` should still fail because the
+      // commit will run first against an empty stage.
+      const exec = async (_cmd: string, args: string[]): Promise<string> => {
+        if (args.includes('--cached')) return '';
+        return '';
+      };
+      const pf = makePreflight(exec);
+      const call: ToolCall = {
+        tool: 'bash',
+        params: { command: 'git commit -m "x" && git add src/foo.ts' },
+      };
+      const results = await pf.validate(call);
+      const rule = results.find((r) => r.rule === 'staging-verification');
+      expect(rule).toBeDefined();
+      expect(rule!.status).toBe('fail');
+    });
   });
 
   describe('branch-protection', () => {

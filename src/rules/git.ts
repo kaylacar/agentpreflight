@@ -134,6 +134,29 @@ const pushUpstreamCheck: Rule = {
 /**
  * Before commit, verify what's actually staged.
  */
+/**
+ * True when the command chains `git add` before `git commit` — i.e., staging
+ * happens inline as part of the same chained invocation. Examples:
+ *   `git add foo.ts && git commit -m "..."`
+ *   `git add -p; git commit -m "..."`
+ * In these cases, preflight cannot meaningfully check the staged set yet
+ * because the `git add` has not run; the commit will see the staged set the
+ * runtime produces.
+ */
+function hasInlineStaging(cmd: string): boolean {
+  // Find positions of `git add` and `git commit` and confirm add precedes commit
+  // with a chain operator between them. Tolerates extra whitespace and additional
+  // commands in between.
+  const addMatch = cmd.match(/\bgit\s+add\b/);
+  const commitMatch = cmd.match(/\bgit\s+commit\b/);
+  if (!addMatch || !commitMatch || addMatch.index === undefined || commitMatch.index === undefined) {
+    return false;
+  }
+  if (addMatch.index >= commitMatch.index) return false;
+  const between = cmd.slice(addMatch.index, commitMatch.index);
+  return /(&&|;|\|\|)/.test(between);
+}
+
 const stagingVerification: Rule = {
   name: 'staging-verification',
   matches(call) {
@@ -143,6 +166,26 @@ const stagingVerification: Rule = {
   },
   async validate(call, ctx) {
     const cmd = getCommandParam(call)!;
+
+    // Inline staging case: the chain stages files itself before committing.
+    // Preflight cannot inspect the eventual staged set; pass through so the
+    // commit can run, but still warn on broad-staging patterns.
+    if (hasInlineStaging(cmd)) {
+      if (/\bgit\s+add\s+(-A\b|\.)/i.test(cmd)) {
+        return {
+          status: 'warn',
+          rule: 'staging-verification',
+          message: 'Broad inline staging detected (git add . or -A) before commit',
+          suggestion: 'Prefer staging specific files by name',
+        };
+      }
+      return {
+        status: 'pass',
+        rule: 'staging-verification',
+        message: 'Inline staging detected — staging will run as part of the chain',
+      };
+    }
+
     try {
       const staged = await ctx.exec('git', ['diff', '--cached', '--name-only'], ctx.cwd);
 
