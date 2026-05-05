@@ -1,6 +1,6 @@
 {
   "name": "agentpreflight",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pre-flight validation for tool calls that catches mistakes before execution",
   "type": "module",
   "main": "./dist/index.js",
