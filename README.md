@@ -378,7 +378,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: kaylacar/agentpreflight@v0.1.2
+      - uses: kaylacar/agentpreflight@v0.1.3
         with:
           tool-calls-file: '.preflight/tool-calls.json'
 ```
