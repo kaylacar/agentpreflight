@@ -1,5 +1,5 @@
 name: 'agentpreflight'
-description: 'Pre-execution validation gate for AI agent tool calls. 13 rule sets covering security and workflow discipline. Zero runtime dependencies.'
+description: 'Pre-execution gate for AI agent tool calls. 13 rules across security and workflow discipline. Zero deps.'
 author: 'Kayla Cardillo / Tech Enrichment'
 branding:
   icon: 'shield'
