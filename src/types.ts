@@ -130,6 +130,21 @@ export interface PreflightPolicyPack {
   responseChecks?: {
     enabled?: boolean;
   };
+  secretsChecks?: {
+    /**
+     * File path glob patterns to skip secret detection on. Files matching any
+     * of these globs will not be scanned. Defaults are a curated set of
+     * canonical example/fixture/eval locations (`.env.example`, JSONL files,
+     * `__fixtures__`, etc.). Supplying this field REPLACES the defaults; use
+     * `additionalIgnoreGlobs` to add to them instead.
+     */
+    ignoreGlobs?: string[];
+    /**
+     * File path glob patterns appended to the defaults. Use this when you want
+     * to keep the built-in whitelist and add more patterns of your own.
+     */
+    additionalIgnoreGlobs?: string[];
+  };
   projectState?: {
     stateFile?: string;
   };

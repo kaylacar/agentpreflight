@@ -702,6 +702,22 @@ Detects: common API keys and tokens (npm, GitHub, AWS, Stripe, Cloudflare), priv
 | `secrets-in-file-content` | write with secret in content | fail |
 | `secrets-in-bash-command` | bash command containing secret | warn |
 
+Skipped paths (default): `**/.env.example`, `**/.env.sample`, `**/.env.template`, `**/.env.dist`, `**/*.test.{js,ts,jsx,tsx}`, `**/*.spec.{js,ts,jsx,tsx}`, `**/__fixtures__/**`, `**/__mocks__/**`, `**/fixtures/**`, `**/data/evals/**`, `**/data/test/**`, `**/data/fixtures/**`, `**/*.jsonl`. These are the canonical locations for empty env-var declarations and fictional/eval text where secret-shaped strings are expected.
+
+Customize via policy pack:
+
+```json
+{
+  "secretsChecks": {
+    "additionalIgnoreGlobs": ["**/golden/**"]
+  }
+}
+```
+
+Use `ignoreGlobs` to **replace** the defaults, `additionalIgnoreGlobs` to **extend** them.
+
+The Cloudflare and generic-env-var detectors require key context (e.g. `cloudflare_api_token: "..."`, `API_KEY=value`) — they no longer fire on a bare 40-char alphanumeric run in free-text content, and they do not fire on empty values (`API_KEY=`, `"api_key": ""`).
+
 ### `naming`
 
 | Rule | Triggers on | Result |
