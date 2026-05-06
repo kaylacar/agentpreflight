@@ -1,6 +1,6 @@
 {
   "name": "agentpreflight",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Pre-flight validation SDK for AI tool calls. Intercepts tool calls, runs rule-based checks, blocks unsafe operations before execution. 13 rule sets, 0 runtime deps, tool-agnostic adapters.",
   "type": "module",
   "main": "./dist/index.js",
@@ -12,13 +12,13 @@
     }
   },
   "bin": {
-    "agentpreflight-setup-editorial": "./setup/editorial-setup.mjs",
-    "agentpreflight-setup-hooks": "./setup/hooks-setup.mjs",
-    "agentpreflight-codex": "./setup/codex-preflight.mjs",
-    "agentpreflight-codex-hook": "./setup/codex-pre-tool-hook.mjs",
-    "agentpreflight-exec": "./setup/preflight-exec.mjs",
-    "agentpreflight-state": "./setup/state.mjs",
-    "agentpreflight-import": "./setup/import-state.mjs"
+    "agentpreflight-setup-editorial": "setup/editorial-setup.mjs",
+    "agentpreflight-setup-hooks": "setup/hooks-setup.mjs",
+    "agentpreflight-codex": "setup/codex-preflight.mjs",
+    "agentpreflight-codex-hook": "setup/codex-pre-tool-hook.mjs",
+    "agentpreflight-exec": "setup/preflight-exec.mjs",
+    "agentpreflight-state": "setup/state.mjs",
+    "agentpreflight-import": "setup/import-state.mjs"
   },
   "files": [
     "dist",
@@ -71,4 +71,3 @@
     "vitest": "^3.0.0"
   }
 }
-
