@@ -45,8 +45,14 @@ const SECRET_PATTERNS: SecretPattern[] = [
 // `KEY=value`. We allow an optional closing quote on the key, optional
 // whitespace, then `:` or `=`, then optional whitespace and an optional
 // opening quote on the value.
+//
+// Whitespace between the keyword and the value uses `[ \t]` (not `\s`) so the
+// key and the value must be on the SAME LINE. Plain `\s` matches `\n`, which
+// produces false positives in prose documents where an "API token" mention is
+// followed many lines later by an unrelated 37-40 char alphanumeric string
+// (filenames, commit hashes, IDs).
 const CLOUDFLARE_KEY_CONTEXT =
-  /(?:cloudflare[_\-]?api[_\-]?token|cloudflare[_\-]?token|cf[_\-](?:api[_\-]?)?token|api[_\-]?token)["']?\s*[:=]\s*["']?([a-zA-Z0-9_\-]{37,40})["']?/i;
+  /(?:cloudflare[_\-]?api[_\-]?token|cloudflare[_\-]?token|cf[_\-](?:api[_\-]?)?token|api[_\-]?token)["']?[ \t]*[:=][ \t]*["']?([a-zA-Z0-9_\-]{37,40})["']?/i;
 
 const CONTEXTUAL_PATTERNS: SecretPattern[] = [
   { name: 'Cloudflare API token', pattern: CLOUDFLARE_KEY_CONTEXT },
